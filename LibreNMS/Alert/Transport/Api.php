@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2014 Daniel Preussker <f0o@devilcode.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,98 +12,81 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * API Transport
+ *
  * @author f0o <f0o@devilcode.org>
  * @author PipoCanaja (github.com/PipoCanaja)
  * @copyright 2014 f0o, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
 
 namespace LibreNMS\Alert\Transport;
 
+use App\View\SimpleTemplate;
 use LibreNMS\Alert\Transport;
-use GuzzleHttp\Client;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Api extends Transport
 {
-    public function deliverAlert($obj, $opts)
+    protected string $name = 'API';
+
+    public function deliverAlert(array $alert_data): bool
     {
-        $url = $this->config['api-url'];
-        $options = $this->config['api-options'];
-        $headers = $this->config['api-headers'];
-        $body = $this->config['api-body'];
-        $method = $this->config['api-method'];
-        $auth = [$this->config['api-auth-username'], $this->config['api-auth-password']];
-        return $this->contactAPI($obj, $url, $options, $method, $auth, $headers, $body);
+        $request_body = $this->config['api-body'];
+        $username = $this->config['api-auth-username'];
+        $password = $this->config['api-auth-password'];
+        $as_form = $this->config['api-as-form'] ?? false;
+
+        $method = strtolower($this->config['api-method']);
+        $host = explode('?', $this->config['api-url'], 2)[0]; //we don't use the parameter part, cause we build it out of options.
+
+        //get each line of key-values and process the variables for Options
+        $query = $this->parseUserOptions($this->config['api-options'], $alert_data);
+        $request_headers = $this->parseUserOptions($this->config['api-headers'], $alert_data);
+        $client = Http::client()
+        ->withHeaders($request_headers); //get each line of key-values and process the variables for Headers
+
+        if ($method !== 'get') {
+            $request_body = SimpleTemplate::parse($this->config['api-body'], $alert_data);
+            if ($as_form == true) {
+                $request_body = $this->parseUserOptions($request_body);
+                $method = 'postform';
+            } else {
+                // withBody always overrides Content-Type so we compute a proper set (with 'Content-Type' => 'text/plain'
+                // as default value, and replace all headers with our computed headers
+                $client->withBody($request_body)->replaceHeaders(array_merge(['Content-Type' => 'text/plain'], $request_headers));
+            }
+        }
+
+        if ($username) {
+            $client->withBasicAuth($username, $password);
+        }
+
+        $client->withOptions([
+            'query' => $query,
+        ]);
+
+        $res = match ($method) {
+            'get' => $client->get($host),
+            'put' => $client->put($host),
+            'postform' => $client->asForm()->post($host, $request_body),
+            default => $client->post($host),
+        };
+
+        if ($res->successful()) {
+            return true;
+        }
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $request_body ?? $query, [
+            'query' => $query,
+        ]);
     }
 
-    private function contactAPI($obj, $api, $options, $method, $auth, $headers, $body)
-    {
-        $request_opts = [];
-        $request_heads = [];
-        $query = [];
-
-        $method = strtolower($method);
-        $host = explode("?", $api, 2)[0]; //we don't use the parameter part, cause we build it out of options.
-
-        //get each line of key-values and process the variables for Headers;
-        foreach (preg_split("/\\r\\n|\\r|\\n/", $headers, -1, PREG_SPLIT_NO_EMPTY) as $current_line) {
-            list($u_key, $u_val) = explode('=', $current_line, 2);
-            foreach ($obj as $p_key => $p_val) {
-                $u_val = str_replace("{{ $" . $p_key . ' }}', $p_val, $u_val);
-            }
-            //store the parameter in the array for HTTP headers
-            $request_heads[$u_key] = $u_val;
-        }
-        //get each line of key-values and process the variables for Options;
-        foreach (preg_split("/\\r\\n|\\r|\\n/", $options, -1, PREG_SPLIT_NO_EMPTY) as $current_line) {
-            list($u_key, $u_val) = explode('=', $current_line, 2);
-            // Replace the values
-            foreach ($obj as $p_key => $p_val) {
-                $u_val = str_replace("{{ $" . $p_key . ' }}', $p_val, $u_val);
-            }
-            //store the parameter in the array for HTTP query
-            $query[$u_key] = $u_val;
-        }
-
-        $client = new \GuzzleHttp\Client();
-        if (isset($auth) && !empty($auth[0])) {
-            $request_opts['auth'] = $auth;
-        }
-        if (count($request_heads) > 0) {
-            $request_opts['headers'] = $request_heads;
-        }
-        if ($method == "get") {
-            $request_opts['query'] = $query;
-            $res = $client->request('GET', $host, $request_opts);
-        } elseif ($method == "put") {
-            $request_opts['query'] = $query;
-            $request_opts['body'] = $body;
-            $res = $client->request('PUT', $host, $request_opts);
-        } else { //Method POST
-            $request_opts['form_params'] = $query;
-            $res = $client->request('POST', $host, $request_opts);
-        }
-
-        $code = $res->getStatusCode();
-        if ($code != 200) {
-            var_dump("API '$host' returned Error");
-            var_dump("Params:");
-            var_dump($query);
-            var_dump("Response headers:");
-            var_dump($res->getHeaders());
-            var_dump("Return: ".$res->getReasonPhrase());
-            return 'HTTP Status code '.$code;
-        }
-        return true;
-    }
-
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -114,8 +98,15 @@ class Api extends Transport
                     'options' => [
                         'GET' => 'GET',
                         'POST' => 'POST',
-                        'PUT' => 'PUT'
-                    ]
+                        'PUT' => 'PUT',
+                    ],
+                ],
+                [
+                    'title' => 'Send as form',
+                    'name' => 'api-as-form',
+                    'descr' => 'Send post data as form',
+                    'type' => 'checkbox',
+                    'default' => false,
                 ],
                 [
                     'title' => 'API URL',
@@ -138,7 +129,7 @@ class Api extends Transport
                 [
                     'title' => 'body',
                     'name' => 'api-body',
-                    'descr' => 'Enter the body (only used by PUT method, discarded otherwise)',
+                    'descr' => 'Enter the body (only used by PUT/POST method, discarded GET)',
                     'type' => 'textarea',
                 ],
                 [
@@ -152,12 +143,12 @@ class Api extends Transport
                     'name' => 'api-auth-password',
                     'descr' => 'Auth Password',
                     'type' => 'password',
-                ]
+                ],
             ],
             'validation' => [
                 'api-method' => 'in:GET,POST,PUT',
-                'api-url' => 'required|url'
-            ]
+                'api-url' => 'required|url',
+            ],
         ];
     }
 }

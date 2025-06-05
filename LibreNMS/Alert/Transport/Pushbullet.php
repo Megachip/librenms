@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2015 Daniel Preussker <f0o@librenms.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,60 +12,42 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * Pushbullet API Transport
+ *
  * @author f0o <f0o@librenms.org>
  * @copyright 2015 f0o, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Pushbullet extends Transport
 {
-    public function deliverAlert($obj, $opts)
-    {
-        if (!empty($this->config)) {
-            $opts = $this->config['pushbullet-token'];
-        }
-        return $this->contactPushbullet($obj, $opts);
-    }
-
-    public function contactPushbullet($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
         // Note: At this point it might be useful to iterate through $obj['contacts'] and send each of them a note ?
+        $url = 'https://api.pushbullet.com/v2/pushes';
+        $data = ['type' => 'note', 'title' => $alert_data['title'], 'body' => $alert_data['msg']];
 
-        $data = array("type" => "note", "title" => $obj['title'], "body" => $obj['msg']);
-        $data = json_encode($data);
+        $res = Http::client()
+            ->withToken($this->config['pushbullet-token'])
+            ->post($url, $data);
 
-        $curl = curl_init('https://api.pushbullet.com/v2/pushes');
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/json',
-            'Content-Length: ' . strlen($data),
-            'Authorization: Bearer ' . $opts,
-        ));
-
-        $ret  = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code > 201) {
-            if ($debug) {
-                var_dump($ret);
-            }
-            return 'HTTP Status code ' . $code;
+        if ($res->successful()) {
+            return true;
         }
-        return true;
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $alert_data['msg'], $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -72,12 +55,12 @@ class Pushbullet extends Transport
                     'title' => 'Access Token',
                     'name' => 'pushbullet-token',
                     'descr' => 'Pushbullet Access Token',
-                    'type' => 'text'
-                ]
+                    'type' => 'password',
+                ],
             ],
             'validation' => [
-                'pushbullet-token' => 'required|string'
-            ]
+                'pushbullet-token' => 'required|string',
+            ],
         ];
     }
 }

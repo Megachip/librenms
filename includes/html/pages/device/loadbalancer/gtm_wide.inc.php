@@ -1,4 +1,5 @@
 <?php
+
 /*
  * LibreNMS module to display F5 GTM Wide IP Details
  *
@@ -13,14 +14,14 @@
  */
 
 $component = new LibreNMS\Component();
-$components = $component->getComponents($device['device_id'], array('filter' => array('ignore' => array('=', 0))));
+$components = $component->getComponents($device['device_id'], ['filter' => ['disabled' => ['=', 0]]]);
 
 // We only care about our device id.
 $components = $components[$device['device_id']];
 
 // We extracted all the components for this device, now lets only get the Wide IPs
-$keep = array();
-$types = array($module, 'f5-gtm-wide');
+$keep = [];
+$types = [$module, 'f5-gtm-wide'];
 foreach ($components as $k => $v) {
     foreach ($types as $type) {
         if ($v['type'] == $type) {

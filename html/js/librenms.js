@@ -1,3 +1,5 @@
+window.maps = {};
+
 function override_config(event, state, tmp_this) {
     event.preventDefault();
     var $this = tmp_this;
@@ -64,12 +66,39 @@ $(document).ready(function() {
 function submitCustomRange(frmdata) {
     var reto = /to=([0-9a-zA-Z\-])+/g;
     var refrom = /from=([0-9a-zA-Z\-])+/g;
-    var tsto = moment(frmdata.dtpickerto.value).unix();
-    var tsfrom = moment(frmdata.dtpickerfrom.value).unix();
-    frmdata.selfaction.value = frmdata.selfaction.value.replace(reto, 'to=' + tsto);
-    frmdata.selfaction.value = frmdata.selfaction.value.replace(refrom, 'from=' + tsfrom);
+    var tsto = $("#dtpickerto").data("DateTimePicker").date().unix();
+    var tsfrom = $("#dtpickerfrom").data("DateTimePicker").date().unix();
+
+    if (frmdata.selfaction.value.match(reto)) {
+        frmdata.selfaction.value = frmdata.selfaction.value.replace(reto, 'to=' + tsto);
+    } else {
+        frmdata.selfaction.value += '/to=' + tsto;
+    }
+
+    if (frmdata.selfaction.value.match(refrom)) {
+        frmdata.selfaction.value = frmdata.selfaction.value.replace(refrom, 'from=' + tsfrom);
+    } else {
+        frmdata.selfaction.value += '/from=' + tsfrom;
+    }
+
     frmdata.action = frmdata.selfaction.value;
     return true;
+}
+
+function updateTimezone(tz, static)
+{
+    $.post(ajax_url + '/set_timezone',
+        {
+            timezone: tz,
+            static: static
+        },
+        function(data) {
+            if(data === tz) {
+                location.reload();
+            }
+        },
+        'text'
+    );
 }
 
 function updateResolution(refresh)
@@ -110,7 +139,7 @@ function resizeend() {
         newW=$(window).width();
         timeout = false;
         if(Math.abs(oldW - newW) >= 200)
-        {
+{
             refresh = true;
         }
         else {
@@ -152,33 +181,9 @@ $(document).on("click", '.collapse-neighbors', function(event)
     continued.toggle();
 });
 
-//availability-map mode change
-$(document).on("change", '#mode', function() {
-    $.post('ajax/set_map_view',
-        {
-            map_view: $(this).val()
-        },
-        function(data) {
-                location.reload();
-        },'json'
-    );
-});
-
-//availability-map device group
-$(document).on("change", '#group', function() {
-    $.post('ajax/set_map_group',
-        {
-            group_view: $(this).val()
-        },
-        function(data){
-            location.reload();
-        },'json'
-    );
-});
-
 $(document).ready(function() {
     var lines = 'on';
-    $("#linenumbers").button().click(function() {
+    $("#linenumbers").button().on("click", function() {
         if (lines == 'on') {
             $($('.config').find('ol').get().reverse()).each(function(){
                 $(this).replaceWith($('<ul>'+$(this).html()+'</ul>'))
@@ -195,6 +200,15 @@ $(document).ready(function() {
         }
     });
 });
+
+// Fix select2 search focus bug
+$(document).on('select2:open', (e) => {
+    const selectId = e.target.id
+
+    $(".select2-search__field[aria-controls='select2-" + selectId + "-results']").each(function (key, value){
+        value.focus();
+    })
+})
 
 function refresh_oxidized_node(device_hostname){
     $.ajax({
@@ -225,6 +239,105 @@ $(document).ready(function () {
     }, 300000);
 });
 
+// Add export button to bootgrid tables
+$(document).on('initialized.rs.jquery.bootgrid', function (e, b) {
+    var grid = $(e.target);
+    var tableId = grid.attr('id');
+
+    if ($('#' + tableId + '-export-button').length === 0) {
+        var ajaxUrl = grid.data('url');
+        var params = grid.data('params');
+
+        if (ajaxUrl) {
+            var exportUrl = ajaxUrl + '/export' + (params ? '?' + params : '');
+            var actionsContainer = null;
+
+            var panel = grid.closest('div.panel');
+            if (panel.length) {
+                actionsContainer = panel.find('div.actions');
+            }
+
+            if (actionsContainer && actionsContainer.length) {
+                var exportButton = $(
+                    '<div id="' + tableId + '-export-button" class="btn-group mr-2 bootgrid-export-button">' +
+                    '<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">' +
+                    '<i class="fa fa-download"></i> <span class="caret"></span>' +
+                    '</button>' +
+                    '<ul class="dropdown-menu">' +
+                    '<li><a href="' + exportUrl + '" class="export-link" data-grid-id="' + tableId + '"><i class="fa fa-file-text-o"></i> Export to CSV</a></li>' +
+                    '</ul>' +
+                    '</div>'
+                );
+
+                actionsContainer.prepend(exportButton);
+
+                // onclick event for export button
+                // to handle filtering and sorting
+                exportButton.find('.export-link').on('click', function(e) {
+                    e.preventDefault();
+
+                    var gridId = $(this).data('grid-id');
+                    var grid = $('#' + gridId);
+                    var currentUrl = $(this).attr('href');
+                    var urlParams = [];
+
+                    var searchPhrase = $('.search-field').val();
+                    if (searchPhrase) {
+                        urlParams.push('searchPhrase=' + encodeURIComponent(searchPhrase));
+                    }
+
+                    // pagination and row count
+                    var currentPage = grid.bootgrid('getCurrentPage');
+                    var rowCount = grid.bootgrid('getRowCount');
+                    urlParams.push('current=' + currentPage);
+                    urlParams.push('rowCount=' + rowCount);
+
+                    // get all filters from the header
+                    var headerContainer = $('.' + gridId + '-headers-table-menu');
+                    if (headerContainer.length) {
+                        headerContainer.find('input[name]').each(function() {
+                            var field = $(this);
+                            var name = field.attr('name');
+                            var value = field.val();
+                            if (name === '_token') {
+                                return;
+                            }
+
+                            if (value !== null && value !== '' && value !== '1') {
+                                urlParams.push(name + '=' + encodeURIComponent(value));
+                            }
+                        });
+
+                        headerContainer.find('select[name]').each(function() {
+                            var select = $(this);
+                            var name = select.attr('name');
+                            var selectedOption = select.find(':selected');
+                            if (selectedOption.length) {
+                                urlParams.push(name + '=' + encodeURIComponent(selectedOption.val()));
+                            }
+                        });
+                    }
+
+                    var sorting = grid.bootgrid('getSortDictionary');
+                    if (sorting && Object.keys(sorting).length > 0) {
+                        for (var sortKey in sorting) {
+                            if (sorting.hasOwnProperty(sortKey)) {
+                                urlParams.push('sort[' + sortKey + ']=' + sorting[sortKey]);
+                            }
+                        }
+                    }
+
+                    if (urlParams.length > 0) {
+                        currentUrl += (currentUrl.indexOf('?') > -1 ? '&' : '?') + urlParams.join('&');
+                    }
+
+                    window.open(currentUrl, '_blank');
+                });
+            }
+        }
+    }
+});
+
 var jsFilesAdded = [];
 var jsLoadingFiles = {};
 function loadjs(filename, func){
@@ -249,18 +362,29 @@ function loadjs(filename, func){
     }
 }
 
-function init_map(id, engine, api_key, config) {
-    var leaflet = L.map(id);
-    var baseMaps = {};
-    leaflet.setView([0, 0], 15);
+function init_map(id, config = {}) {
+    let leaflet = get_map(id)
+    if (leaflet) {
+        // return existing map
+        return leaflet;
+    }
 
-    if (engine === 'google') {
-        loadjs('https://maps.googleapis.com/maps/api/js?key=' + api_key, function () {
+    leaflet = L.map(id, {
+        preferCanvas: true,
+        zoom: config.zoom !== undefined ? config.zoom : 3,
+        center: (config.lat !== undefined && config.lng !== undefined) ? [config.lat, config.lng] : [40,-20]
+    });
+    window.maps[id] = leaflet;
+    let baseMaps = {};
+
+    if (config.engine === 'google' && config.api_key) {
+        leaflet.setMaxZoom(21);
+        loadjs('https://maps.googleapis.com/maps/api/js?key=' + config.api_key, function () {
             loadjs('js/Leaflet.GoogleMutant.js', function () {
-                var roads = L.gridLayer.googleMutant({
+                const roads = L.gridLayer.googleMutant({
                     type: 'roadmap'	// valid values are 'roadmap', 'satellite', 'terrain' and 'hybrid'
                 });
-                var satellite = L.gridLayer.googleMutant({
+                const satellite = L.gridLayer.googleMutant({
                     type: 'satellite'
                 });
 
@@ -268,18 +392,20 @@ function init_map(id, engine, api_key, config) {
                     "Streets": roads,
                     "Satellite": satellite
                 };
-                L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
-                roads.addTo(leaflet);
+                leaflet.layerControl = L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
+                (config.layer in baseMaps ? baseMaps[config.layer] : roads).addTo(leaflet);
+                leaflet.layerControl._container.style.display = (config.readonly ? 'none' : 'block');
             });
         });
-    } else if (engine === 'bing') {
+    } else if (config.engine === 'bing' && config.api_key) {
+        leaflet.setMaxZoom(18);
         loadjs('js/leaflet-bing-layer.min.js', function () {
-            var roads = L.tileLayer.bing({
-                bingMapsKey: api_key,
+            const roads = L.tileLayer.bing({
+                bingMapsKey: config.api_key,
                 imagerySet: 'RoadOnDemand'
             });
-            var satellite = L.tileLayer.bing({
-                bingMapsKey: api_key,
+            const satellite = L.tileLayer.bing({
+                bingMapsKey: config.api_key,
                 imagerySet: 'AerialWithLabelsOnDemand'
             });
 
@@ -287,49 +413,149 @@ function init_map(id, engine, api_key, config) {
                 "Streets": roads,
                 "Satellite": satellite
             };
-            L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
-            roads.addTo(leaflet);
+            leaflet.layerControl = L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
+            (config.layer in baseMaps ? baseMaps[config.layer] : roads).addTo(leaflet);
+            leaflet.layerControl._container.style.display = (config.readonly ? 'none' : 'block');
         });
-    } else if (engine === 'mapquest') {
-        loadjs('https://www.mapquestapi.com/sdk/leaflet/v2.2/mq-map.js?key=' + api_key, function () {
-            var roads = MQ.mapLayer();
-            var satellite = MQ.hybridLayer();
+    } else if (config.engine === 'mapquest' && config.api_key) {
+        leaflet.setMaxZoom(20);
+        loadjs('https://www.mapquestapi.com/sdk/leaflet/v2.2/mq-map.js?key=' + config.api_key, function () {
+            const roads = MQ.mapLayer();
+            const satellite = MQ.hybridLayer();
 
             baseMaps = {
                 "Streets": roads,
                 "Satellite": satellite
             };
-            L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
-            roads.addTo(leaflet);
+            leaflet.layerControl = L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
+            (config.layer in baseMaps ? baseMaps[config.layer] : roads).addTo(leaflet);
+            leaflet.layerControl._container.style.display = (config.readonly ? 'none' : 'block');
         });
+    } else if (config.engine === 'esri') {
+        leaflet.setMaxZoom(18);
+        // use vector maps if we have an API key
+        if (config.api_key) {
+            loadjs('js/esri-leaflet.js', function () {
+                loadjs('js/esri-leaflet-vector.js', function () {
+                    var roads = L.esri.Vector.vectorBasemapLayer("ArcGIS:Streets", {
+                        apikey: config.api_key
+                    });
+                    var topology = L.esri.Vector.vectorBasemapLayer("ArcGIS:Topographic", {
+                        apikey: config.api_key
+                    });
+                    var satellite = L.esri.Vector.vectorBasemapLayer("ArcGIS:Imagery", {
+                        apikey: config.api_key
+                    });
+
+                    baseMaps = {
+                        "Streets": roads,
+                        "Topography": topology,
+                        "Satellite": satellite
+                    };
+                    leaflet.layerControl = L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
+                    (config.layer in baseMaps ? baseMaps[config.layer] : roads).addTo(leaflet);
+                    leaflet.layerControl._container.style.display = (config.readonly ? 'none' : 'block');
+                });
+            });
+        } else {
+            let attribution = 'Powered by <a href="https://www.esri.com/">Esri</a> | Esri Community Maps Contributors, Maxar, Microsoft, Iowa DNR, © OpenStreetMap, Microsoft, TomTom, Garmin, SafeGraph, GeoTechnologies, Inc, METI/NASA, USGS, EPA, NPS, US Census Bureau, USDA, USFWS';
+            var roads = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: attribution
+            });
+            var topology = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x', {
+                attribution: attribution
+            });
+            var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: attribution
+            });
+
+            baseMaps = {
+                "Streets": roads,
+                "Topography": topology,
+                "Satellite": satellite
+            };
+            leaflet.layerControl = L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
+            (config.layer in baseMaps ? baseMaps[config.layer] : roads).addTo(leaflet);
+            leaflet.layerControl._container.style.display = (config.readonly ? 'none' : 'block');
+        }
     } else {
-        var osm = L.tileLayer('//' + config.tile_url + '/{z}/{x}/{y}.png', {
+        leaflet.setMaxZoom(20);
+        const tile_url = config.tile_url ? config.tile_url : '{s}.tile.openstreetmap.org';
+        L.tileLayer('//' + tile_url + '/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        });
-
-        // var esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        //     attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        // });
-        //
-        // baseMaps = {
-        //     "OpenStreetMap": osm,
-        //     "Satellite": esri
-        // };
-        // L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(leaflet);
-        osm.addTo(leaflet);
+        }).addTo(leaflet);
     }
 
-    if (location.protocol === 'https:') {
+    // disable all interaction
+    if (config.readonly === true) {
+        disable_map_interaction(leaflet)
+    } else if (location.protocol === 'https:') {
         // can't request location permission without https
-        L.control.locate().addTo(leaflet);
+        leaflet.locateControl = L.control.locate().addTo(leaflet);
     }
 
     return leaflet;
 }
 
+function get_map(id) {
+    if (window.maps) {
+        return window.maps[id];
+    }
+}
+
+function destroy_map(id) {
+    const leaflet = get_map(id);
+    if(id in window.maps) {
+        leaflet.off();
+        leaflet._container.classList.remove('leaflet-container', 'leaflet-touch', 'leaflet-retina', 'leaflet-fade-anim');
+        leaflet.remove();
+        delete window.maps[id];
+    }
+}
+
+function disable_map_interaction(leaflet) {
+    leaflet.zoomControl?.remove();
+    delete leaflet.zoomControl;
+    leaflet.locateControl?.stop();
+    leaflet.locateControl?.remove();
+    delete leaflet.locateControl;
+    if (leaflet.layerControl) {
+        leaflet.layerControl._container.style.display = 'none';
+    }
+    leaflet.dragging.disable();
+    leaflet.touchZoom.disable();
+    leaflet.doubleClickZoom.disable();
+    leaflet.scrollWheelZoom.disable();
+    leaflet.boxZoom.disable();
+    leaflet.keyboard.disable();
+    leaflet.tap?.disable();
+    leaflet._container.style.cursor = 'default';
+}
+
+function enable_map_interaction(leaflet) {
+    if (! leaflet.zoomControl) {
+        leaflet.zoomControl = L.control.zoom().addTo(leaflet);
+    }
+    if (location.protocol === 'https:' && ! leaflet.locateControl) {
+        // can't request location permission without https
+        leaflet.locateControl = L.control.locate().addTo(leaflet);
+    }
+    if (leaflet.layerControl) {
+        leaflet.layerControl._container.style.display = 'block';
+    }
+    leaflet.dragging.enable();
+    leaflet.touchZoom.enable();
+    leaflet.doubleClickZoom.enable();
+    leaflet.scrollWheelZoom.enable();
+    leaflet.boxZoom.enable();
+    leaflet.keyboard.enable();
+    leaflet.tap?.enable();
+    leaflet._container.style.cursor = 'pointer';
+}
+
 function init_map_marker(leaflet, latlng) {
-    var marker = L.marker(latlng);
+    let marker = L.marker(latlng);
     marker.addTo(leaflet);
     leaflet.setView(latlng);
 
@@ -345,15 +571,42 @@ function init_map_marker(leaflet, latlng) {
     return marker;
 }
 
+function setCustomMapBackground(id, type, data) {
+    let image = '';
+    let color = '';
+
+    if(type === 'image') {
+        image = `url(${data.image_url})`;
+    } else if(type === 'color') {
+        color = data.color;
+    }
+    $(`#${id} .vis-network canvas`)
+        .css('background-image', image)
+        .css('background-size', 'cover')
+        .css('background-color', color);
+
+    const mapBackgroundId = `${id}-bg-geo-map`;
+    if (type === 'map') {
+        $(`#${id}-bg-geo-map`).show();
+        let config = data;
+        config['readonly'] = true;
+        init_map(mapBackgroundId, config)
+            .setView(L.latLng(data.lat, data.lng), data.zoom);
+    } else {
+        // destroy the map if it exists
+        destroy_map(mapBackgroundId)
+    }
+}
+
 function update_location(id, latlng, callback) {
     $.ajax({
         method: 'PATCH',
         url: ajax_url + '/location/' + id,
         data: {lat: latlng.lat, lng: latlng.lng}
-    }).success(function () {
+    }).done(function () {
         toastr.success('Location updated');
         typeof callback === 'function' && callback(true);
-    }).error(function (e) {
+    }).fail(function (e) {
         var msg = 'Failed to update location: ' + e.statusText;
         var data = e.responseJSON;
         if (data) {
@@ -394,7 +647,7 @@ function http_fallback(link) {
     return false;
 }
 
-function init_select2(selector, type, data, selected, placeholder) {
+function init_select2(selector, type, data, selected, placeholder, config) {
     var $select = $(selector);
 
     // allow function to be assigned to pass data
@@ -407,21 +660,31 @@ function init_select2(selector, type, data, selected, placeholder) {
         data_function = data;
     }
 
-    $select.select2({
+    var init = {
         theme: "bootstrap",
         dropdownAutoWidth : true,
         width: "auto",
         placeholder: placeholder,
         allowClear: true,
+        containerCssClass: ":all:",
         ajax: {
             url: ajax_url + '/select/' + type,
             delay: 150,
             data: data_function
         }
-    });
+    };
+
+    // override init values
+    if (typeof config === 'object') {
+        var keys = Object.keys(config);
+        for (var i = 0; i < keys.length; i++) {
+            init[keys[i]] = config[keys[i]];
+        }
+    }
+
+    $select.select2(init);
 
     if (selected) {
-        console.log(selected);
         if (typeof selected !== 'object') {
             selected = {id: selected, text: selected};
         }
@@ -459,3 +722,58 @@ function humanize_duration(seconds) {
 
     return res;
 }
+
+function popUp(URL)
+{
+    window.open(URL, '_blank', 'toolbar=0,scrollbars=1,location=0,statusbar=0,menubar=0,resizable=1,width=550,height=600');
+}
+
+function applySiteStyle(newStyle) {
+    // translate device to actual style
+    if (newStyle === 'device') {
+        newStyle = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    document.documentElement.classList.toggle('dark', newStyle === 'dark');
+
+    if (window.siteStyle !== newStyle) {
+        window.siteStyle = newStyle;
+        $.post(ajax_url + '/set_style', { style: newStyle });
+        document.querySelectorAll('img.graph-image').forEach(img => {
+            img.src = img.src.replace(/&style=\w+/g, '') + '&style=' + newStyle;
+        });
+    }
+}
+
+// popup component javascript.  Hopefully temporary.
+document.addEventListener("alpine:init", () => {
+    Alpine.data("popup", () => ({
+        popupShow: false,
+        showTimeout: null,
+        hideTimeout: null,
+        ignoreNextShownEvent: false,
+        delay: 300,
+        show(timeout) {
+            clearTimeout(this.hideTimeout);
+            this.showTimeout = setTimeout(() => {
+                this.popupShow = true;
+                Popper.createPopper(this.$refs.targetRef, this.$refs.popupRef, {
+                    padding: 8
+                });
+
+                // close other popups, except this one
+                this.ignoreNextShownEvent = true;
+                this.$dispatch('librenms-popup-shown', this.$el);
+            }, timeout);
+        },
+        hide(timeout) {
+            if (this.ignoreNextShownEvent) {
+                this.ignoreNextShownEvent = false;
+                return;
+            }
+
+            clearTimeout(this.showTimeout);
+            this.hideTimeout = setTimeout(() => this.popupShow = false, timeout)
+        }
+    }));
+});

@@ -1,4 +1,5 @@
 <?php
+
 /*
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -11,10 +12,10 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* along with this program.  If not, see <https://www.gnu.org/licenses/>.
 *
 * @package    LibreNMS
-* @link       http://librenms.org
+* @link       https://www.librenms.org
 * @copyright  2020 LibreNMS
 * @author     Cercel Valentin <crc@nuamchefazi.ro>
 */
@@ -23,19 +24,15 @@ use LibreNMS\Exceptions\JsonAppException;
 use LibreNMS\RRD\RrdDefinition;
 
 $name = 'mailcow-postfix';
-$app_id = $app['app_id'];
-
-d_echo($name);
 
 try {
     $mailcow_postfix = json_app_get($device, $name);
 } catch (JsonAppException $e) {
     echo PHP_EOL . $name . ':' . $e->getCode() . ':' . $e->getMessage() . PHP_EOL;
     update_application($app, $e->getCode() . ':' . $e->getMessage(), []); // Set empty metrics and error message
+
     return;
 }
-
-$rrd_name = array('app', $name, $app_id);
 
 $rrd_def = RrdDefinition::make()
     ->addDataset('received', 'GAUGE', 0)
@@ -54,8 +51,7 @@ $rrd_def = RrdDefinition::make()
     ->addDataset('recipients', 'GAUGE', 0)
     ->addDataset('recipienthostsdomains', 'GAUGE', 0);
 
-
-$fields = array(
+$fields = [
     'received' => $mailcow_postfix['data']['received'],
     'delivered' => $mailcow_postfix['data']['delivered'],
     'forwarded' => $mailcow_postfix['data']['forwarded'],
@@ -71,8 +67,13 @@ $fields = array(
     'sendinghostsdomains' => $mailcow_postfix['data']['sendinghostsdomains'],
     'recipients' => $mailcow_postfix['data']['recipients'],
     'recipienthostsdomains' => $mailcow_postfix['data']['recipienthostsdomains'],
-);
+];
 
-$tags = compact('name', 'app_id', 'rrd_name', 'rrd_def');
-data_update($device, 'app', $tags, $fields);
+$tags = [
+    'name' => $name,
+    'app_id' => $app->app_id,
+    'rrd_name' => ['app', $name, $app->app_id],
+    'rrd_def' => $rrd_def,
+];
+app('Datastore')->put($device, 'app', $tags, $fields);
 update_application($app, 'OK', $fields);

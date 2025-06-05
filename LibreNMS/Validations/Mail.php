@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Mail.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -36,34 +37,34 @@ class Mail extends BaseValidation
      * Validate this module.
      * To return ValidationResults, call ok, warn, fail, or result methods on the $validator
      *
-     * @param Validator $validator
+     * @param  Validator  $validator
      */
-    public function validate(Validator $validator)
+    public function validate(Validator $validator): void
     {
         if (Config::get('alert.transports.mail') === true) {
             $run_test = 1;
-            if (!Config::has('alert.default_mail')) {
+            if (! Config::has('alert.default_mail')) {
                 $validator->fail('default_mail config option needs to be specified to test email');
                 $run_test = 0;
             } elseif (Config::get('email_backend') == 'sendmail') {
-                if (!Config::has('email_sendmail_path')) {
-                    $validator->fail("You have selected sendmail but not configured email_sendmail_path");
+                if (! Config::has('email_sendmail_path')) {
+                    $validator->fail('You have selected sendmail but not configured email_sendmail_path');
                     $run_test = 0;
-                } elseif (!file_exists(Config::get('email_sendmail_path'))) {
-                    $validator->fail("The configured email_sendmail_path is not valid");
+                } elseif (! file_exists(Config::get('email_sendmail_path'))) {
+                    $validator->fail('The configured email_sendmail_path is not valid');
                     $run_test = 0;
                 }
             } elseif (Config::get('email_backend') == 'smtp') {
-                if (!Config::has('email_smtp_host')) {
+                if (! Config::has('email_smtp_host')) {
                     $validator->fail('You have selected SMTP but not configured an SMTP host');
                     $run_test = 0;
                 }
-                if (!Config::has('email_smtp_port')) {
+                if (! Config::has('email_smtp_port')) {
                     $validator->fail('You have selected SMTP but not configured an SMTP port');
                     $run_test = 0;
                 }
                 if (Config::get('email_smtp_auth')
-                    && (!Config::has('email_smtp_username') || !Config::has('email_smtp_password'))
+                    && (! Config::has('email_smtp_username') || ! Config::has('email_smtp_password'))
                 ) {
                     $validator->fail('You have selected SMTP auth but have not configured both username and password');
                     $run_test = 0;
@@ -71,10 +72,11 @@ class Mail extends BaseValidation
             }//end if
             if ($run_test == 1) {
                 $email = Config::get('alert.default_mail');
-                if ($err = send_mail($email, 'Test email', 'Testing email from NMS')) {
+                try {
+                    \LibreNMS\Util\Mail::send($email, 'Test email', 'Testing email from NMS');
                     $validator->ok('Email has been sent');
-                } else {
-                    $validator->fail("Issue sending email to $email with error $err");
+                } catch (\Exception $e) {
+                    $validator->fail("Issue sending email to $email with error " . $e->getMessage());
                 }
             }
         }//end if

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * app/Models/AlertTemplate.php
  *
@@ -15,24 +16,39 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+
 class AlertTemplate extends BaseModel
 {
     public $timestamps = false;
 
     // ---- Define Relationships ----
-
-    public function map()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\AlertTemplateMap, $this>
+     */
+    public function map(): HasMany
     {
-        return $this->hasMany('App\Models\AlertTemplateMap', 'alert_templates_id', 'id');
+        return $this->hasMany(AlertTemplateMap::class, 'alert_templates_id', 'id');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough<\App\Models\AlertRule, \App\Models\AlertTemplateMap, $this>
+     */
+    public function alert_rules(): HasManyThrough
+    {
+        return $this->hasManyThrough(AlertRule::class, AlertTemplateMap::class, 'alert_templates_id', 'id', 'id', 'alert_rule_id')
+                    ->select(['id' => 'alert_rules.id', 'name' => 'alert_rules.name'])
+                    ->orderBy('alert_rules.name');
     }
 }

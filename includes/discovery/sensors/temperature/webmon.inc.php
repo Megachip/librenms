@@ -1,4 +1,5 @@
 <?php
+
 /*
  * LibreNMS Dantel Webmon temperature sensor
  *
@@ -9,7 +10,7 @@
  * the source code distribution for details.
  *
  * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
  * @copyright  2019 Mike Williams
  * @copyright  2019 PipoCanaja
  * @author     Mike Williams <mike@mgww.net>
@@ -30,6 +31,9 @@ foreach ($prefixes as $prefix => $numOidPrefix) {
     $walk = snmpwalk_cache_oid($device, $prefix . 'Table', [], 'WEBMON-EDGE-MATRIX-MIB');
 
     foreach ($walk as $index => $oid) {
+        if (! isset($oid[$prefix . 'SensorType'])) {
+            continue;
+        }
         $user_function = null;
         if ($oid[$prefix . 'Configured'] != '0' && ($oid[$prefix . 'SensorType'] == '1' || $oid[$prefix . 'SensorType'] == 'temperature') && $oid[$prefix . 'LiveRaw']) {
             $num_oid = $numOidPrefix . $index;
@@ -40,7 +44,7 @@ foreach ($prefixes as $prefix => $numOidPrefix) {
             $lowWarnLimit = $oid[$prefix . 'Thresh3'];
             $highLimit = $oid[$prefix . 'Thresh1'];
             $highWarnLimit = $oid[$prefix . 'Thresh2'];
-            if ($oid[$prefix . 'Units'] == "Fahrenheit") {
+            if ($oid[$prefix . 'Units'] == 'Fahrenheit') {
                 $user_function = 'fahrenheit_to_celsius';
                 $value = fahrenheit_to_celsius($value);
                 $lowLimit = fahrenheit_to_celsius($lowLimit);
@@ -48,7 +52,7 @@ foreach ($prefixes as $prefix => $numOidPrefix) {
                 $highLimit = fahrenheit_to_celsius($highLimit);
                 $highWarnLimit = fahrenheit_to_celsius($highWarnLimit);
             }
-            discover_sensor($valid['sensor'], 'temperature', $device, $num_oid, $prefix . 'LiveRaw.' . $index, 'webmon', $descr, '1', '1', $lowLimit, $lowWarnLimit, $highWarnLimit, $highLimit, $value, 'snmp', null, null, $user_function, $group);
+            discover_sensor(null, 'temperature', $device, $num_oid, $prefix . 'LiveRaw.' . $index, 'webmon', $descr, '1', '1', $lowLimit, $lowWarnLimit, $highWarnLimit, $highLimit, $value, 'snmp', null, null, $user_function, $group);
         }
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2015 Daniel Preussker <f0o@librenms.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,56 +12,56 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * SMSEagle API Transport
+ *
  * @author Barry O'Donovan <barry@lightnet.ie>
  * @copyright 2017 Barry O'Donovan, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Smseagle extends Transport
 {
-    public function deliverAlert($obj, $opts)
+    protected string $name = 'SMSEagle';
+
+    public function deliverAlert(array $alert_data): bool
     {
-        $smseagle_opts['url']   = $this->config['smseagle-url'];
-        $smseagle_opts['user']  = $this->config['smseagle-user'];
-        $smseagle_opts['token'] = $this->config['smseagle-pass'];
-        $smseagle_opts['to']    = preg_split('/([,\r\n]+)/', $this->config['smseagle-mobiles']);
-        return $this->contactSmseagle($obj, $smseagle_opts);
-    }
-
-    public static function contactSmseagle($obj, $opts)
-    {
-        $params = [
-            'login' => $opts['user'],
-            'pass' => $opts['token'],
-            'to' => implode(',', $opts['to']),
-            'message' => $obj['title'],
-        ];
-        $url = starts_with($opts['url'], 'http') ? '' : 'http://';
-        $url .= $opts['url'] . '/index.php/http_api/send_sms?' . http_build_query($params);
-        $curl   = curl_init($url);
-
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "GET");
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-
-        $ret = curl_exec($curl);
-        if (substr($ret, 0, 2) == "OK") {
-            return true;
-        } else {
-            return false;
+        $url = $this->config['smseagle-url'] . '/http_api/send_sms';
+        if (! str_starts_with($url, 'http')) {
+            $url = 'http://' . $url;
         }
+
+        $params = [];
+
+        // use token if available
+        if (empty($this->config['smseagle-token'])) {
+            $params['login'] = $this->config['smseagle-user'];
+            $params['pass'] = $this->config['smseagle-pass'];
+        } else {
+            $params['access_token'] = $this->config['smseagle-token'];
+        }
+
+        $params['to'] = implode(',', preg_split('/([,\r\n]+)/', $this->config['smseagle-mobiles']));
+        $params['message'] = $alert_data['title'];
+
+        $res = Http::client()->get($url, $params);
+
+        if ($res->successful() && str_starts_with($res->body(), 'OK')) {
+            return true;
+        }
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $params['message'], $params);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -69,6 +70,12 @@ class Smseagle extends Transport
                     'name' => 'smseagle-url',
                     'descr' => 'SMSEagle Host',
                     'type' => 'text',
+                ],
+                [
+                    'title' => 'Access Token',
+                    'name' => 'smseagle-token',
+                    'descr' => 'SMSEagle Access Token',
+                    'type' => 'password',
                 ],
                 [
                     'title' => 'User',
@@ -80,7 +87,7 @@ class Smseagle extends Transport
                     'title' => 'Password',
                     'name' => 'smseagle-pass',
                     'descr' => 'SMSEagle Password',
-                    'type' => 'text',
+                    'type' => 'password',
                 ],
                 [
                     'title' => 'Mobiles',
@@ -90,11 +97,12 @@ class Smseagle extends Transport
                 ],
             ],
             'validation' => [
-                'smseagle-url'     => 'required|url',
-                'smseagle-user'    => 'required|string',
-                'smseagle-pass'    => 'required|string',
+                'smseagle-url' => 'required|url',
+                'smseagle-token' => 'required_without:smseagle-user,smseagle-pass|string',
+                'smseagle-user' => 'required_without:smseagle-token|string',
+                'smseagle-pass' => 'required_without:smseagle-token|string',
                 'smseagle-mobiles' => 'required',
-            ]
+            ],
         ];
     }
 }

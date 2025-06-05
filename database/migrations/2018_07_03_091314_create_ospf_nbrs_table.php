@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateOspfNbrsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ospf_nbrs', function (Blueprint $table) {
             $table->increments('id');
@@ -30,7 +29,7 @@ class CreateOspfNbrsTable extends Migration
             $table->string('ospfNbmaNbrPermanence', 32);
             $table->string('ospfNbrHelloSuppressed', 32);
             $table->string('context_name', 128)->nullable();
-            $table->unique(['device_id','ospf_nbr_id','context_name'], 'device_id');
+            $table->unique(['device_id', 'ospf_nbr_id', 'context_name']);
         });
     }
 
@@ -39,8 +38,8 @@ class CreateOspfNbrsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ospf_nbrs');
     }
-}
+};

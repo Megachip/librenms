@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Transport.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Robrecht Plaisier
  * @author     Robbrecht Plaisier <librenms@mcq8.be>
  */
@@ -28,16 +29,29 @@ namespace LibreNMS\Interfaces\Alert;
 interface Transport
 {
     /**
+     * @return string The display name of this transport.
+     */
+    public function name(): string;
+
+    /**
      * Gets called when an alert is sent
      *
-     * @param $alert_data array An array created by DescribeAlert
-     * @param $opts array|true The options from the alert_transports transport_config column
-     * @return mixed Returns if the call was successful
+     * @param  array  $alert_data  An array created by DescribeAlert
+     * @return bool Returns true if the call was successful.
+     *
+     * @throws \LibreNMS\Exceptions\AlertTransportDeliveryException
      */
-    public function deliverAlert($alert_data, $opts);
+    public function deliverAlert(array $alert_data): bool;
 
     /**
      * @return array
      */
-    public static function configTemplate();
+    public static function configTemplate(): array;
+
+    /**
+     * Display the configuration details of this alert transport
+     *
+     * @return string
+     */
+    public function displayDetails(): string;
 }

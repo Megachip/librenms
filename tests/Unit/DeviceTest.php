@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DeviceTest.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -30,77 +31,74 @@ use App\Models\Ipv4Address;
 use App\Models\Port;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use LibreNMS\Tests\DBTestCase;
-use LibreNMS\Tests\TestCase;
 
 class DeviceTest extends DBTestCase
 {
     use DatabaseTransactions;
 
-    public function testFindByHostname()
+    public function testFindByHostname(): void
     {
-        $device = factory(Device::class)->create();
-
+        $device = Device::factory()->create(); /** @var Device $device */
         $found = Device::findByHostname($device->hostname);
         $this->assertNotNull($found);
-        $this->assertEquals($device->device_id, $found->device_id, "Did not find the correct device");
+        $this->assertEquals($device->device_id, $found->device_id, 'Did not find the correct device');
     }
 
-    public function testFindByIpFail()
+    public function testFindByIpFail(): void
     {
         $found = Device::findByIp('this is not an ip');
         $this->assertNull($found);
     }
 
-    public function testFindByIpv4Fail()
+    public function testFindByIpv4Fail(): void
     {
         $found = Device::findByIp('182.43.219.43');
         $this->assertNull($found);
     }
 
-    public function testFindByIpv6Fail()
+    public function testFindByIpv6Fail(): void
     {
         $found = Device::findByIp('341a:234d:3429:9845:909f:fd32:1930:32dc');
         $this->assertNull($found);
     }
 
-    public function testFindIpButNoPort()
+    public function testFindIpButNoPort(): void
     {
-        $ipv4 = factory(Ipv4Address::class)->create();
+        $ipv4 = Ipv4Address::factory()->create(); /** @var Ipv4Address $ipv4 */
         Port::destroy($ipv4->port_id);
 
         $found = Device::findByIp($ipv4->ipv4_address);
         $this->assertNull($found);
     }
 
-    public function testFindByIp()
+    public function testFindByIp(): void
     {
-        $device = factory(Device::class)->create();
-
+        $device = Device::factory()->create(); /** @var Device $device */
         $found = Device::findByIp($device->ip);
         $this->assertNotNull($found);
-        $this->assertEquals($device->device_id, $found->device_id, "Did not find the correct device");
+        $this->assertEquals($device->device_id, $found->device_id, 'Did not find the correct device');
     }
 
-    public function testFindByIpHostname()
+    public function testFindByIpHostname(): void
     {
         $ip = '192.168.234.32';
-        $device = factory(Device::class)->create(['hostname' => $ip]);
-
+        $device = Device::factory()->create(['hostname' => $ip]); /** @var Device $device */
         $found = Device::findByIp($ip);
         $this->assertNotNull($found);
-        $this->assertEquals($device->device_id, $found->device_id, "Did not find the correct device");
+        $this->assertEquals($device->device_id, $found->device_id, 'Did not find the correct device');
     }
 
-    public function testFindByIpThroughPort()
+    public function testFindByIpThroughPort(): void
     {
-        $device = factory(Device::class)->create();
-        $port = factory(Port::class)->make();
+        $device = Device::factory()->create(); /** @var Device $device */
+        $port = Port::factory()->make(); /** @var Port $port */
         $device->ports()->save($port);
-        $ipv4 = factory(Ipv4Address::class)->make(); // test ipv4 lookup of device
+        // test ipv4 lookup of device
+        $ipv4 = Ipv4Address::factory()->make(); /** @var Ipv4Address $ipv4 */
         $port->ipv4()->save($ipv4);
 
         $found = Device::findByIp($ipv4->ipv4_address);
         $this->assertNotNull($found);
-        $this->assertEquals($device->device_id, $found->device_id, "Did not find the correct device");
+        $this->assertEquals($device->device_id, $found->device_id, 'Did not find the correct device');
     }
 }

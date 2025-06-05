@@ -1,29 +1,29 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-class CreateMplsTunnelCHopsTable extends Migration
+return new class extends Migration
 {
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('mpls_tunnel_c_hops', function (Blueprint $table) {
             $table->increments('c_hop_id');
             $table->unsignedInteger('mplsTunnelCHopListIndex');
             $table->unsignedInteger('mplsTunnelCHopIndex');
-            $table->unsignedInteger('device_id')->index('device_id');
+            $table->unsignedInteger('device_id')->index();
             $table->unsignedInteger('lsp_path_id')->nullable();
-            $table->enum('mplsTunnelCHopAddrType', array('unknown','ipV4','ipV6','asNumber','lspid','unnum'))->nullable();
+            $table->enum('mplsTunnelCHopAddrType', ['unknown', 'ipV4', 'ipV6', 'asNumber', 'lspid', 'unnum'])->nullable();
             $table->string('mplsTunnelCHopIpv4Addr', 15)->nullable();
             $table->string('mplsTunnelCHopIpv6Addr', 45)->nullable();
             $table->unsignedInteger('mplsTunnelCHopAsNumber')->nullable();
-            $table->enum('mplsTunnelCHopStrictOrLoose', array('strict','loose'))->nullable();
+            $table->enum('mplsTunnelCHopStrictOrLoose', ['strict', 'loose'])->nullable();
             $table->string('mplsTunnelCHopRouterId', 15)->nullable();
         });
     }
@@ -33,8 +33,8 @@ class CreateMplsTunnelCHopsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('mpls_tunnel_c_hops');
     }
-}
+};

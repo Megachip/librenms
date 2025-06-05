@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Fs-switch.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 PipoCanaja
  * @author     PipoCanaja <pipocanaja@gmail.com>
  */
@@ -26,11 +27,30 @@
 namespace LibreNMS\OS;
 
 use LibreNMS\Device\Processor;
-use LibreNMS\Interfaces\Discovery\ProcessorDiscovery;
 use LibreNMS\OS;
 
-class FsSwitch extends OS implements ProcessorDiscovery
+class FsSwitch extends OS
 {
+    public static function normalizeTransceiverValues($value): float
+    {
+        // Convert fixed-point integer thresholds to float
+        $type = gettype($value);
+        if ($type === 'integer') {
+            // Thresholds are integers
+            $value /= 100.0;
+        }
+
+        return $value;
+    }
+
+    public static function normalizeTransceiverValuesCurrent($value): float
+    {
+        $value = FsSwitch::normalizeTransceiverValues($value);
+        $value *= 0.001; // mA to A
+
+        return $value;
+    }
+
     /**
      * Discover processors.
      * Returns an array of LibreNMS\Device\Processor objects that have been discovered
@@ -42,19 +62,20 @@ class FsSwitch extends OS implements ProcessorDiscovery
         $processors = [];
 
         // Tests OID from SWITCH MIB.
-        $processors_data = snmpwalk_cache_oid($this->getDevice(), 'ssCpuIdle', [], 'SWITCH', 'fs');
+        $processors_data = snmpwalk_cache_oid($this->getDeviceArray(), 'ssCpuIdle', [], 'SWITCH', 'fs');
 
         foreach ($processors_data as $index => $entry) {
             $processors[] = Processor::discover(
-                "fs-SWITCHMIB",
+                'fs-SWITCHMIB',
                 $this->getDeviceId(),
                 '.1.3.6.1.4.1.27975.1.2.11.' . $index,
                 $index,
-                "CPU",
+                'CPU',
                 -1,
                 100 - $entry['ssCpuIdle']
             );
         }
+
         return $processors;
     }
 }

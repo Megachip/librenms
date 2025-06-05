@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DeviceRelatedModel.php
  *
@@ -15,15 +16,18 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace App\Models;
+
+use App\Facades\DeviceCache;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeviceRelatedModel extends BaseModel
 {
@@ -36,17 +40,37 @@ class DeviceRelatedModel extends BaseModel
 
     public function scopeInDeviceGroup($query, $deviceGroup)
     {
-        return $query->whereIn($query->qualifyColumn('device_id'), function ($query) use ($deviceGroup) {
-            $query->select('device_id')
-                ->from('device_group_device')
-                ->where('device_group_id', $deviceGroup);
-        });
+        // Build the list of device IDs in SQL
+        $deviceIdsSubquery = \DB::table('device_group_device')
+        ->where('device_group_id', $deviceGroup)
+        ->pluck('device_id');
+
+        // Use the result in the whereIn clause to avoid unoptimized subqueries
+        // use whereIntegerInRaw to avoid a the defautl limit of 1000 for whereIn
+        return $query->whereIntegerInRaw($query->qualifyColumn('device_id'), $deviceIdsSubquery);
     }
 
     // ---- Define Relationships ----
-
-    public function device()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\Device, $this>
+     */
+    public function device(): BelongsTo
     {
-        return $this->belongsTo('App\Models\Device', 'device_id', 'device_id');
+        return $this->belongsTo(Device::class, 'device_id', 'device_id');
+    }
+
+    // ---- Accessors/Mutators ----
+
+    /**
+     * Use cached device instance to load device relationships
+     */
+    public function getDeviceAttribute(): ?Device
+    {
+        if (! $this->relationLoaded('device')) {
+            $device = DeviceCache::get($this->device_id);
+            $this->setRelation('device', $device->exists ? $device : null);
+        }
+
+        return $this->getRelationValue('device');
     }
 }

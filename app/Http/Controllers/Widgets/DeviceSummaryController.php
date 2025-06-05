@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DeviceSummaryController.php
  *
@@ -15,19 +16,16 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace App\Http\Controllers\Widgets;
 
-use App\Models\Device;
-use App\Models\Port;
-use App\Models\Service;
 use Illuminate\Http\Request;
 use LibreNMS\Config;
 use LibreNMS\Util\ObjectCache;
@@ -40,8 +38,9 @@ abstract class DeviceSummaryController extends WidgetController
     {
         // init defaults we need to check config, so do it in construct
         $this->defaults = [
-            'show_services' => (int)Config::get('show_services', 1),
-            'summary_errors' => (int)Config::get('summary_errors', 0)
+            'show_services' => (int) Config::get('show_services', 1),
+            'show_sensors' => (int) Config::get('show_sensors', 1),
+            'summary_errors' => (int) Config::get('summary_errors', 0),
         ];
     }
 
@@ -62,6 +61,10 @@ abstract class DeviceSummaryController extends WidgetController
 
         if ($data['show_services']) {
             $data['services'] = ObjectCache::serviceCounts(['total', 'ok', 'critical', 'ignored', 'disabled']);
+        }
+
+        if ($data['show_sensors']) {
+            $data['sensors'] = ObjectCache::sensorCounts(['total', 'ok', 'critical', 'disable_notify']);
         }
 
         return $data;

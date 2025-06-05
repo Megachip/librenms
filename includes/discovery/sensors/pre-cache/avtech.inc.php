@@ -1,4 +1,5 @@
 <?php
+
 /**
  * avtech.inc.php
  *
@@ -15,14 +16,13 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
-
 
 // table name => regex (first group is index, second group is id)
 $virtual_tables = [
@@ -31,11 +31,16 @@ $virtual_tables = [
     'ra32-ext-temp' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.8\.1\.2\.((\d+)\.1\.0)/',
     'ra32-switch' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.8\.1\.3\.((\d+)\.0)/',
     'ra32-wish-temp' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.8\.1\.4\.((\d+)\.4\.1\.2\.0)/',
+    'ra32s-analog' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.11\.1\.1\.5\.((\d+)\.0)/',
+    'ra32s-relay' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.11\.1\.1\.6\.((\d+)\.0)/',
+    'ra32s-ext-temp' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.11\.1\.2\.((\d+)\.1\.0)/',
+    'ra32s-switch' => '/\.1\.3\.6\.1\.4\.1\.20916\.1\.11\.1\.3\.((\d+)\.0)/',
 ];
 
-$data = snmp_walk($device, '.1.3.6.1.4.1.20916.1', '-OQn');
+$data = trim(snmp_walk($device, '.1.3.6.1.4.1.20916.1', '-OQn'));
 foreach (explode(PHP_EOL, $data) as $line) {
-    list($oid, $value) = explode(' = ', $line);
+    [$oid, $value] = explode(' =', $line);
+    $value = trim($value);
 
     $processed = false;
     foreach ($virtual_tables as $vt_name => $vt_regex) {
@@ -50,7 +55,7 @@ foreach (explode(PHP_EOL, $data) as $line) {
         }
     }
 
-    if (!$processed) {
+    if (! $processed) {
         $pre_cache[$oid] = [[$oid => $value]];
     }
 }

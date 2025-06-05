@@ -1,4 +1,5 @@
 <?php
+
 /**
  * RrdDefinitonTest.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -30,34 +31,31 @@ use LibreNMS\RRD\RrdDefinition;
 
 class RrdDefinitionTest extends TestCase
 {
-    public function testEmpty()
+    public function testEmpty(): void
     {
-
-        $this->assertEmpty((string)new RrdDefinition());
+        $this->assertEmpty((string) new RrdDefinition());
     }
 
-    /**
-     * @expectedException \LibreNMS\Exceptions\InvalidRrdTypeException
-     */
-    public function testWrongType()
+    public function testWrongType(): void
     {
+        $this->expectException(\LibreNMS\Exceptions\InvalidRrdTypeException::class);
         Config::set('rrd.step', 300);
         Config::set('rrd.heartbeat', 600);
         $def = new RrdDefinition();
         $def->addDataset('badtype', 'Something unexpected');
     }
 
-    public function testNameEscaping()
+    public function testNameEscaping(): void
     {
         Config::set('rrd.step', 300);
         Config::set('rrd.heartbeat', 600);
         $expected = 'DS:bad_name-is_too_lon:GAUGE:600:0:100 ';
         $def = RrdDefinition::make()->addDataset('b a%d$_n:a^me-is_too_lon%g.', 'GAUGE', 0, 100, 600);
 
-        $this->assertEquals($expected, (string)$def);
+        $this->assertEquals($expected, (string) $def);
     }
 
-    public function testCreation()
+    public function testCreation(): void
     {
         Config::set('rrd.step', 300);
         Config::set('rrd.heartbeat', 600);

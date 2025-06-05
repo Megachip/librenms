@@ -1,5 +1,5 @@
 <?php
-$class      = 'runtime';
-$unit       = 'Min';
-$graph_type = 'sensor_runtime';
+
+$class = 'runtime';
+
 require 'sensors.inc.php';

@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateOspfPortsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ospf_ports', function (Blueprint $table) {
             $table->increments('id');
@@ -39,7 +38,7 @@ class CreateOspfPortsTable extends Migration
             $table->string('ospfIfDemand', 32)->nullable();
             $table->string('ospfIfAuthType', 32)->nullable();
             $table->string('context_name', 128)->nullable();
-            $table->unique(['device_id','ospf_port_id','context_name'], 'device_id');
+            $table->unique(['device_id', 'ospf_port_id', 'context_name']);
         });
     }
 
@@ -48,8 +47,8 @@ class CreateOspfPortsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ospf_ports');
     }
-}
+};

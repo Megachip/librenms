@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2015 Daniel Preussker <f0o@devilcode.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,70 +12,62 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * VictorOps Generic-API Transport - Based on PagerDuty transport
+ *
  * @author f0o <f0o@devilcode.org>
  * @author laf <neil@librenms.org>
  * @copyright 2015 f0o, laf, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Enum\AlertState;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Victorops extends Transport
 {
-    public function deliverAlert($obj, $opts)
-    {
-        if (!empty($this->config)) {
-            $opts['url'] = $this->config['victorops-url'];
-        }
-        return $this->contactVictorops($obj, $opts);
-    }
+    protected string $name = 'Splunk On-Call';
 
-    public function contactVictorops($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
-        $url = $opts['url'];
-
-        $protocol = array(
-            'entity_id' => strval($obj['id'] ? $obj['id'] : $obj['uid']),
-            'state_start_time' => strtotime($obj['timestamp']),
-            'entity_display_name' => $obj['title'],
-            'state_message' => $obj['msg'],
+        $url = $this->config['victorops-url'];
+        $protocol = [
+            'entity_id' => strval($alert_data['id'] ?: $alert_data['uid']),
+            'state_start_time' => strtotime($alert_data['timestamp']),
+            'entity_display_name' => $alert_data['title'],
+            'state_message' => $alert_data['msg'],
             'monitoring_tool' => 'librenms',
-        );
-        if ($obj['state'] == 0) {
-            $protocol['message_type'] = 'recovery';
-        } elseif ($obj['state'] == 2) {
-            $protocol['message_type'] = 'acknowledgement';
-        } elseif ($obj['state'] == 1) {
-            $protocol['message_type'] = 'critical';
-        }
+        ];
+        $protocol['message_type'] = match ($alert_data['state']) {
+            AlertState::RECOVERED => 'RECOVERY',
+            AlertState::ACKNOWLEDGED => 'ACKNOWLEDGEMENT',
+            default => match ($alert_data['severity']) {
+                'ok' => 'INFO',
+                'warning' => 'WARNING',
+                default => 'CRITICAL',
+            },
+        };
 
-        foreach ($obj['faults'] as $fault => $data) {
+        foreach ($alert_data['faults'] as $fault => $data) {
             $protocol['state_message'] .= $data['string'];
         }
 
-        $curl = curl_init();
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-type' => 'application/json'));
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($protocol));
-        $ret  = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            var_dump("VictorOps returned Error, retry later"); //FIXME: propper debuging
-            return false;
+        $res = Http::client()->post($url, $protocol);
+
+        if ($res->successful()) {
+            return true;
         }
-        return true;
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $alert_data['msg'], $protocol);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -82,12 +75,12 @@ class Victorops extends Transport
                     'title' => 'Post URL',
                     'name' => 'victorops-url',
                     'descr' => 'Victorops Post URL',
-                    'type' => 'text'
-                ]
+                    'type' => 'text',
+                ],
             ],
             'validation' => [
-                'victorops-url' => 'required|string'
-            ]
+                'victorops-url' => 'required|string',
+            ],
         ];
     }
 }

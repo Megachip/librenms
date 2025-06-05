@@ -1,26 +1,24 @@
 <?php
+
 /**
  * LibreNMS
  *
  *   This file is part of LibreNMS.
  *
- * @package    librenms
- * @subpackage webinterface
  * @copyright  (C) 2006 - 2012 Adam Armstrong
  */
-
 ini_set('allow_url_fopen', 0);
 
-$init_modules = array('web', 'auth');
+$init_modules = ['web', 'auth'];
 require realpath(__DIR__ . '/..') . '/includes/init.php';
 
-$urlargs = array(
-    'type'          => 'bill_historictransfer',
-    'id'            => $_GET['bill_id'],
-    'width'         => $_GET['x'],
-    'height'        => $_GET['y'],
-    'imgtype'       => $_GET['type']
-);
+$urlargs = [
+    'type' => 'bill_historictransfer',
+    'id' => $_GET['bill_id'],
+    'width' => $_GET['x'],
+    'height' => $_GET['y'],
+    'imgtype' => $_GET['type'],
+];
 if (is_numeric($_GET['bill_hist_id'])) {
     $urlargs['bill_hist_id'] = $_GET['bill_hist_id'];
 } elseif (is_numeric($_GET['from']) && is_numeric($_GET['to'])) {

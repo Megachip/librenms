@@ -1,4 +1,5 @@
 <?php
+
 /*
  * LibreNMS
  *
@@ -9,42 +10,34 @@
  * option) any later version.  Please see LICENSE.txt at the top level of
  * the source code distribution for details.
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
 use LibreNMS\Config;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Kayako extends Transport
 {
-    public function deliverAlert($host, $kayako)
+    public function deliverAlert(array $alert_data): bool
     {
-        if (!empty($this->config)) {
-            $kayako['url'] = $this->config['kayako-url'];
-            $kayako['key'] = $this->config['kayako-key'];
-            $kayako['secret'] = $this->config['kayako-secret'];
-            $kayako['department'] = $this->config['kayako-department'];
-        }
-        return $this->contactKayako($host, $kayako);
-    }
-
-    public function contactKayako($host, $kayako)
-    {
-        $url   = $kayako['url']."/Tickets/Ticket";
-        $key = $kayako['key'];
-        $secret = $kayako['secret'];
+        $url = $this->config['kayako-url'] . '/Tickets/Ticket';
+        $key = $this->config['kayako-key'];
+        $secret = $this->config['kayako-secret'];
         $user = Config::get('email_from');
-        $department = $kayako['department'];
-        $ticket_type= 1;
+        $department = $this->config['kayako-department'];
+        $ticket_type = 1;
         $ticket_status = 1;
         $ticket_prio = 1;
-        $salt = mt_rand();
+        $salt = bin2hex(random_bytes(20));
         $signature = base64_encode(hash_hmac('sha256', $salt, $secret, true));
 
-        $protocol = array(
-            'subject' => ($host['name'] ? $host['name'] . ' on ' . $host['hostname'] : $host['title']),
+        $protocol = [
+            'subject' => ($alert_data['name'] ? $alert_data['name'] . ' on ' . $alert_data['hostname'] : $alert_data['title']),
             'fullname' => 'LibreNMS Alert',
             'email' => $user,
-            'contents' => strip_tags($host['msg']),
+            'contents' => strip_tags($alert_data['msg']),
             'departmentid' => $department,
             'ticketstatusid' => $ticket_status,
             'ticketpriorityid' => $ticket_prio,
@@ -53,27 +46,21 @@ class Kayako extends Transport
             'ignoreautoresponder' => true,
             'apikey' => $key,
             'salt' => $salt,
-            'signature' => $signature
-        );
-        $post_data = http_build_query($protocol, '', '&');
+            'signature' => $signature,
+        ];
 
-        $curl     = curl_init();
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $post_data);
-        curl_exec($curl);
+        $res = Http::client()
+            ->asForm() // unsure if this is needed, can't access docs
+            ->post($url, $protocol);
 
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            var_dump("Kayako returned Error, retry later");
-            return false;
+        if ($res->successful()) {
+            return true;
         }
 
-        return true;
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $protocol['contents'], $protocol);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -81,33 +68,33 @@ class Kayako extends Transport
                     'title' => 'Kayako URL',
                     'name' => 'kayako-url',
                     'descr' => 'ServiceDesk API URL',
-                    'type' => 'text'
+                    'type' => 'text',
                 ],
                 [
                     'title' => 'Kayako API Key',
                     'name' => 'kayako-key',
                     'descr' => 'ServiceDesk API Key',
-                    'type' => 'text'
+                    'type' => 'text',
                 ],
                 [
                     'title' => 'Kayako API Secret',
                     'name' => 'kayako-secret',
                     'descr' => 'ServiceDesk API Secret Key',
-                    'type' => 'text'
+                    'type' => 'password',
                 ],
                 [
                     'title' => 'Kayako Department',
                     'name' => 'kayako-department',
                     'descr' => 'Department to post a ticket',
-                    'type' => 'text'
-                ]
+                    'type' => 'text',
+                ],
             ],
             'validation' => [
                 'kayako-url' => 'required|url',
                 'kayako-key' => 'required|string',
                 'kayako-secret' => 'required|string',
-                'kayako-department' => 'required|string'
-            ]
+                'kayako-department' => 'required|string',
+            ],
         ];
     }
 }

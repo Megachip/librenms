@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Saf-Integra.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
@@ -48,7 +49,7 @@ class SafIntegraB extends OS implements
      */
     public function discoverWirelessFrequency()
     {
-        return array(
+        return [
             // SAF-INTEGRAB-MIB::integraBradioTxFrequency
             new WirelessSensor(
                 'frequency',
@@ -73,7 +74,7 @@ class SafIntegraB extends OS implements
                 1,
                 1000
             ),
-        );
+        ];
     }
 
     /**
@@ -84,7 +85,7 @@ class SafIntegraB extends OS implements
      */
     public function discoverWirelessMse()
     {
-        return array(
+        return [
             // SAF-INTEGRAB-MIB::integraBmodemMse
             new WirelessSensor(
                 'mse',
@@ -97,7 +98,7 @@ class SafIntegraB extends OS implements
                 1,
                 10
             ),
-        );
+        ];
     }
 
     /**
@@ -108,7 +109,7 @@ class SafIntegraB extends OS implements
      */
     public function discoverWirelessPower()
     {
-        return array(
+        return [
             // SAF-INTEGRAB-MIB::integraBradioTxPower
             new WirelessSensor(
                 'power',
@@ -127,7 +128,7 @@ class SafIntegraB extends OS implements
                 'integraBradioRxLevel',
                 'Rx Level'
             ),
-        );
+        ];
     }
 
     /**
@@ -138,7 +139,7 @@ class SafIntegraB extends OS implements
      */
     public function discoverWirelessRate()
     {
-        return array(
+        return [
             // SAF-INTEGRAB-MIB::integraBmodemRxCapacity
             new WirelessSensor(
                 'rate',
@@ -161,7 +162,7 @@ class SafIntegraB extends OS implements
                 null,
                 1000
             ),
-        );
+        ];
     }
 
     /**
@@ -172,7 +173,7 @@ class SafIntegraB extends OS implements
      */
     public function discoverWirelessQuality()
     {
-        return array(
+        return [
             // SAF-INTEGRAB-MIB::integraBmodemSignalQuality
             new WirelessSensor(
                 'quality',
@@ -184,6 +185,6 @@ class SafIntegraB extends OS implements
                 null,
                 1
             ),
-        );
+        ];
     }
 }

@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreatePortsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ports', function (Blueprint $table) {
             $table->increments('port_id');
@@ -21,7 +20,7 @@ class CreatePortsTable extends Migration
             $table->string('port_descr_circuit')->nullable();
             $table->string('port_descr_speed', 32)->nullable();
             $table->string('port_descr_notes')->nullable();
-            $table->string('ifDescr')->nullable()->index('if_2');
+            $table->string('ifDescr')->nullable()->index();
             $table->string('ifName')->nullable();
             $table->string('portName', 128)->nullable();
             $table->bigInteger('ifIndex')->nullable()->default(0);
@@ -35,9 +34,9 @@ class CreatePortsTable extends Migration
             $table->string('ifAdminStatus_prev', 16)->nullable();
             $table->string('ifDuplex', 12)->nullable();
             $table->integer('ifMtu')->nullable();
-            $table->text('ifType', 65535)->nullable();
-            $table->text('ifAlias', 65535)->nullable();
-            $table->text('ifPhysAddress', 65535)->nullable();
+            $table->text('ifType')->nullable();
+            $table->text('ifAlias')->nullable();
+            $table->text('ifPhysAddress')->nullable();
             $table->string('ifHardType', 64)->nullable();
             $table->bigInteger('ifLastChange')->unsigned()->default(0);
             $table->string('ifVlan', 8)->default('');
@@ -86,7 +85,7 @@ class CreatePortsTable extends Migration
             $table->unsignedInteger('poll_time')->nullable();
             $table->unsignedInteger('poll_prev')->nullable();
             $table->unsignedInteger('poll_period')->nullable();
-            $table->unique(['device_id','ifIndex'], 'device_ifIndex');
+            $table->unique(['device_id', 'ifIndex']);
         });
     }
 
@@ -95,8 +94,8 @@ class CreatePortsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ports');
     }
-}
+};

@@ -12,24 +12,24 @@
  *
  * @package    LibreNMS
  * @subpackage webui
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
  * @copyright  2017 LibreNMS
  * @author     LibreNMS Contributors
 */
 
-$pagetitle[] = "Alert Stats";
+$pagetitle[] = 'Alert Stats';
 $param = [];
-$sql = "";
+$sql = '';
 if (isset($device['device_id']) && $device['device_id'] > 0) {
-    $sql = " AND alert_log.device_id=?";
-    $param = array(
-        $device['device_id']
-    );
+    $sql = ' AND alert_log.device_id=?';
+    $param = [
+        $device['device_id'],
+    ];
 }
 
-if (!Auth::user()->hasGlobalRead()) {
+if (! Auth::user()->hasGlobalRead()) {
     $device_ids = Permissions::devicesForUser()->toArray() ?: [0];
-    $sql .= " AND `alert_log`.`device_id` IN " .dbGenPlaceholders(count($device_ids));
+    $sql .= ' AND `alert_log`.`device_id` IN ' . dbGenPlaceholders(count($device_ids));
     $param = array_merge($param, $device_ids);
 }
 
@@ -44,14 +44,17 @@ $query = "SELECT DATE_FORMAT(time_logged, '" . \LibreNMS\Config::get('alert_grap
     <br>
     <div style="margin:0 auto;width:99%;">
 
-<script src="js/vis.min.js"></script>
+<script src="js/vis-network.min.js"></script>
+<script src="js/vis-data.min.js"></script>
+<script src="js/vis-timeline-graph2d.min.js"></script>
 <div id="visualization" style="margin-bottom: -120px;"></div>
 <script type="text/javascript">
 
     var container = document.getElementById('visualization');
     <?php
-    $groups = array();
+    $groups = [];
     $max_count = 0;
+    $data = [];
 
     foreach (dbFetchRows($query, $param) as $return_value) {
         $date = $return_value['Date'];
@@ -61,18 +64,18 @@ $query = "SELECT DATE_FORMAT(time_logged, '" . \LibreNMS\Config::get('alert_grap
         }
 
         $severity = $return_value['Severity'];
-        $data[] = array(
-        'x' => $date,
-        'y' => $count,
-        'group' => $severity
-            );
-        if (!in_array($severity, $groups)) {
+        $data[] = [
+            'x' => $date,
+            'y' => $count,
+            'group' => $severity,
+        ];
+        if (! in_array($severity, $groups)) {
             array_push($groups, $severity);
         }
     }
 
-    $graph_data = _json_encode($data);
-?>
+    $graph_data = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    ?>
     var groups = new vis.DataSet();
 <?php
 
@@ -101,9 +104,9 @@ foreach ($groups as $group) {
         zoomMax: <?php
         $first_date = reset($data);
         $last_date = end($data);
-        $milisec_diff = abs(strtotime($first_date["x"]) - strtotime($last_date["x"])) * 1000;
+        $milisec_diff = abs(strtotime($first_date['x']) - strtotime($last_date['x'])) * 1000;
         echo $milisec_diff;
-?>,
+        ?>,
         orientation:'top'
     };
     var graph2d = new vis.Graph2d(container, items, groups, options);

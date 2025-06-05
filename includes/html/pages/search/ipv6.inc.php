@@ -7,8 +7,8 @@
             <tr>
                 <th data-column-id="hostname">Device</th>
                 <th data-column-id="interface">Interface</th>
-                <th data-column-id="address" data-sortable="false">Address</th>
-                <th data-column-id="description" data-sortable="false">Description</th>
+                <th data-column-id="address" data-sortable="false" data-formatter="tooltip">Address</th>
+                <th data-column-id="description" data-sortable="false" data-formatter="tooltip">Description</th>
             </tr>
         <thead>
     </table>
@@ -28,24 +28,24 @@ var grid = $("#ipv6-search").bootgrid({
                 "<option value=\"\">All Devices</option>"+
 <?php
 
-$sql = 'SELECT `devices`.`device_id`,`hostname`, `sysName` FROM `devices`';
+$sql = 'SELECT `devices`.`device_id`,`hostname`, `sysName`, `display` FROM `devices`';
 $param = [];
 
-if (!Auth::user()->hasGlobalRead()) {
+if (! Auth::user()->hasGlobalRead()) {
     $device_ids = Permissions::devicesForUser()->toArray() ?: [0];
-    $where .= " WHERE `devices`.`device_id` IN " .dbGenPlaceholders(count($device_ids));
+    $where .= ' WHERE `devices`.`device_id` IN ' . dbGenPlaceholders(count($device_ids));
     $param = array_merge($param, $device_ids);
 }
 
 $sql .= " $where ORDER BY `hostname`";
 
 foreach (dbFetchRows($sql, $param) as $data) {
-    echo '"<option value=\"'.$data['device_id'].'\""+';
+    echo '"<option value=\"' . $data['device_id'] . '\""+';
     if ($data['device_id'] == $_POST['device_id']) {
         echo '" selected"+';
     }
 
-    echo '">'.format_hostname($data, $data['hostname']).'</option>"+';
+    echo '">' . str_replace(['"', '\''], '', htmlentities(format_hostname($data))) . '</option>"+';
 }
 ?>
                 "</select>"+
@@ -74,7 +74,7 @@ if ($_POST['interface'] == 'Vlan%') {
                 "</select>"+
                 "</div>"+
                 "<div class=\"form-group\">"+
-                "<input type=\"text\" name=\"address\" id=\"address\" size=40 value=\"<?php echo $_POST['address']; ?>\" class=\"form-control input-sm\" placeholder=\"IPv6 Address\"/>"+
+                "<input type=\"text\" name=\"address\" id=\"address\" size=40 value=\"<?php echo htmlspecialchars($_POST['address']); ?>\" class=\"form-control input-sm\" placeholder=\"IPv6 Address\"/>"+
                 "</div>"+
                 "<button type=\"submit\" class=\"btn btn-default input-sm\">Search</button>"+
                 "</form></span></div>"+
@@ -86,11 +86,17 @@ if ($_POST['interface'] == 'Vlan%') {
             id: "address-search",
             search_type: "ipv6",
             device_id: '<?php echo htmlspecialchars($_POST['device_id']); ?>',
-            interface: '<?php echo mres($_POST['interface']); ?>',
-            address: '<?php echo mres($_POST['address']); ?>'
+            interface: '<?php echo htmlspecialchars($_POST['interface']); ?>',
+            address: '<?php echo htmlspecialchars($_POST['address']); ?>'
         };
     },
-    url: "ajax_table.php"
+    url: "ajax_table.php",
+    formatters: {
+        "tooltip": function (column, row) {
+                var value = row[column.id];
+                return "<span title=\'" + value + "\' data-toggle=\'tooltip\'>" + value + "</span>";
+            },
+    },
 });
 
 </script>

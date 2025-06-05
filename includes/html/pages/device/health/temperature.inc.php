@@ -1,7 +1,5 @@
 <?php
 
-$class      = 'temperature';
-$unit       = '&deg;C';
-$graph_type = 'sensor_temperature';
+$class = 'temperature';
 
 require 'sensors.inc.php';

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * QueryBuilderTest.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -28,30 +29,30 @@ namespace LibreNMS\Tests;
 use LibreNMS\Alerting\QueryBuilderFluentParser;
 use LibreNMS\Alerting\QueryBuilderParser;
 use LibreNMS\Config;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class QueryBuilderTest extends TestCase
 {
-    private $data_file = 'tests/data/misc/querybuilder.json';
+    private static string $data_file = 'tests/data/misc/querybuilder.json';
 
-    public function testHasQueryData()
+    public function testHasQueryData(): void
     {
         $this->assertNotEmpty(
             $this->loadQueryData(),
-            "Could not load query builder test data from $this->data_file"
+            'Could not load query builder test data from ' . self::$data_file
         );
     }
 
     /**
-     *
-     * @dataProvider loadQueryData
-     * @param string $legacy
-     * @param array $builder
-     * @param string $display
-     * @param string $sql
+     * @param  string  $legacy
+     * @param  array  $builder
+     * @param  string  $display
+     * @param  string  $sql
      */
-    public function testQueryConversion($legacy, $builder, $display, $sql, $query)
+    #[DataProvider('loadQueryData')]
+    public function testQueryConversion($legacy, $builder, $display, $sql, $query): void
     {
-        if (!empty($legacy)) {
+        if (! empty($legacy)) {
             // some rules don't have a legacy representation
             $this->assertEquals($builder, QueryBuilderParser::fromOld($legacy)->toArray());
         }
@@ -64,10 +65,11 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals($query[1], $qbq->getBindings(), 'Fluent bindings do not match');
     }
 
-    public function loadQueryData()
+    public static function loadQueryData(): array
     {
         $base = Config::get('install_dir');
-        $data = file_get_contents("$base/$this->data_file");
+        $data = file_get_contents("$base/" . self::$data_file);
+
         return json_decode($data, true);
     }
 }

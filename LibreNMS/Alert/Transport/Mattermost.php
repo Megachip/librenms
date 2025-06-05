@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2019 George Pantazis <gpant@eservices-greece.com>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,82 +12,55 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * Mattermost API Transport
+ *
  * @author George Pantazis <gpant@eservices-greece.com>
  * @copyright 2019 George Pantazis, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Mattermost extends Transport
 {
-    public function deliverAlert($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
-        $mattermost_opts = [
-            'url' => $this->config['mattermost-url'],
-            'username' => $this->config['mattermost-username'],
-            'icon' => $this->config['mattermost-icon'],
-            'channel' => $this->config['mattermost-channel'],
-            'author_name' => $this->config['mattermost-author_name'],
-        ];
-
-        return $this->contactMattermost($obj, $mattermost_opts);
-    }
-
-    public static function contactMattermost($obj, $api)
-    {
-        $host = $api['url'];
-        $curl = curl_init();
-        $mattermost_msg = strip_tags($obj['msg']);
-        $color = self::getColorForState($obj['state']);
+        $host = $this->config['mattermost-url'];
+        $mattermost_msg = strip_tags($alert_data['msg']);
+        $color = self::getColorForState($alert_data['state']);
         $data = [
             'attachments' => [
                 0 => [
                     'fallback' => $mattermost_msg,
                     'color' => $color,
-                    'title' => $obj['title'],
-                    'text' => $obj['msg'],
+                    'title' => $alert_data['title'],
+                    'text' => $alert_data['msg'],
                     'mrkdwn_in' => ['text', 'fallback'],
-                    'author_name' => $api['author_name'],
+                    'author_name' => $this->config['mattermost-author_name'],
                 ],
             ],
-            'channel' => $api['channel'],
-            'username' => $api['username'],
-            'icon_url' => $api['icon'],
+            'channel' => $this->config['mattermost-channel'],
+            'username' => $this->config['mattermost-username'],
+            'icon_url' => $this->config['mattermost-icon'],
         ];
 
-        $device = device_by_id_cache($obj['device_id']);
+        $res = Http::client()->acceptJson()->post($host, $data);
 
-        set_curl_proxy($curl);
-
-        $httpheaders = array('Accept: application/json', 'Content-Type: application/json');
-        $alert_payload = json_encode($data);
-
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $httpheaders);
-        curl_setopt($curl, CURLOPT_URL, $host);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $alert_payload);
-
-        $ret = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            d_echo("Mattermost Connection Error: " . $ret);
-            return 'HTTP Status code ' . $code;
-        } else {
-            d_echo("Mattermost message sent for " . $device);
+        if ($res->successful()) {
             return true;
         }
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $alert_data['msg'], $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [

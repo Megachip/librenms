@@ -1,4 +1,5 @@
 <?php
+
 /**
  * extendair.inc.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Neil Lathwood
  * @author     Neil Lathwood <neil@lathwood.co.uk>
  */
@@ -47,17 +48,16 @@ $sensors = [
 ];
 
 foreach ($sensors as $sensor) {
-    $temp = snmp_get($device, $sensor['state_name'].'.0', "-Ovqe", "ExaltComProducts");
+    $temp = snmp_get($device, $sensor['state_name'] . '.0', '-Ovqe', 'ExaltComProducts');
     $cur_oid = $sensor['num_oid'];
 
     if (is_numeric($temp)) {
         $state_name = $sensor['state_name'];
-        $index      = $state_name;
+        $index = $state_name;
         create_state_index($state_name, $states);
 
         $descr = $sensor['descr'];
-        discover_sensor($valid['sensor'], 'state', $device, $cur_oid, $index, $state_name, $descr, 1, 1, null, null, null, null, $temp);
-        create_sensor_to_state_index($device, $state_name, $index);
+        discover_sensor(null, 'state', $device, $cur_oid, $index, $state_name, $descr, 1, 1, null, null, null, null, $temp);
     }
 }
 

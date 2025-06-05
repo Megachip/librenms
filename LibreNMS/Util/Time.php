@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Time.php
  *
@@ -15,19 +16,22 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace LibreNMS\Util;
 
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
+
 class Time
 {
-    public static function legacyTimeSpecToSecs($description)
+    public static function legacyTimeSpecToSecs(string $description): int
     {
         $conversion = [
             'now' => 0,
@@ -46,41 +50,67 @@ class Time
             'twoyear' => 63072000,
         ];
 
-        return isset($conversion[$description]) ? $conversion[$description] : 0;
+        return $conversion[$description] ?? 0;
     }
 
-    public static function formatInterval($interval, $format = 'long')
+    /**
+     * Format seconds as a human readable interval.  Negative seconds will say "ago".
+     */
+    public static function formatInterval(?int $seconds, bool $short = false, ?int $parts = null): string
     {
-        $result = '';
-        $data = [
-            'years' => 31536000,
-            'days' => 86400,
-            'hours' => 3600,
-            'minutes' => 60,
-            'seconds' => 1,
-        ];
-
-        foreach ($data as $k => $v) {
-            if ($interval >= $v) {
-                $diff = floor($interval / $v);
-
-                $result .= " $diff";
-                if ($format == 'short') {
-                    $result .= substr($k, 0, 1);
-                }
-
-                if ($format != 'short' && $diff > 1) {
-                    $result .= ' ' . $k;
-                }
-
-                if ($format != 'short' && $diff < 2) {
-                    $result .= ' ' . substr($k, 0, -1);
-                }
-
-                $interval -= $v * $diff;
-            }
+        if ($seconds == 0) {
+            return '';
         }
 
-        return $result;
+        try {
+            return Carbon::now()->subSeconds(abs($seconds))->diffForHumans(
+                syntax: $seconds < 0 ? CarbonInterface::DIFF_RELATIVE_TO_NOW : CarbonInterface::DIFF_ABSOLUTE,
+                short: $short,
+                parts: $parts ?? ($short ? 3 : 4),
+            );
+        } catch (\Exception) {
+            return '';
+        }
+    }
+
+    /**
+     * Parse a time string into a timestamp including signed relative times using:
+     * m - month
+     * d - day
+     * h - hour
+     * y - year
+     */
+    public static function parseAt(string|int $time): int
+    {
+        if (is_numeric($time)) {
+            return $time < 0 ? time() + $time : intval($time);
+        }
+
+        if (preg_match('/^[+-]\d+[hdmy]$/', $time)) {
+            $units = [
+                'm' => 60,
+                'h' => 3600,
+                'd' => 86400,
+                'y' => 31557600,
+            ];
+            $value = Number::cast(substr($time, 1, -1));
+            $unit = substr($time, -1);
+
+            $offset = ($time[0] == '-' ? -1 : 1) * $units[$unit] * $value;
+
+            return time() + $offset;
+        }
+
+        return (int) strtotime($time);
+    }
+
+    /**
+     * Take a date and return the number of days from now
+     */
+    public static function dateToMinutes(string|int $date): int
+    {
+        $carbon = new Carbon();
+
+        return (int) $carbon->diffInMinutes($date);
     }
 }

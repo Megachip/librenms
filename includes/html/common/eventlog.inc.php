@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -8,7 +9,7 @@
  *
  * @package    LibreNMS
  * @subpackage webui
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
  * @copyright  2017 LibreNMS
  * @author     LibreNMS Contributors
 */
@@ -35,8 +36,8 @@ var eventlog_grid = $("#eventlog").bootgrid({
     post: function ()
     {
         return {
-            device: "' . (int)($vars['device']) . '",
-            eventtype: "' . addcslashes($vars['eventtype'], '"') . '",
+            device: ' . (empty($vars['device']) ? 'null' : (int) $vars['device']) . ',
+            eventtype: "' . htmlspecialchars($vars['eventtype'] ?? '') . '",
         };
     },
     url: "' . url('/ajax/table/eventlog') . '"

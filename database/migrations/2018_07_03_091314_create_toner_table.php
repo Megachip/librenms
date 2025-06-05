@@ -3,19 +3,18 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateTonerTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('toner', function (Blueprint $table) {
             $table->increments('toner_id');
-            $table->unsignedInteger('device_id')->default(0)->index('device_id');
+            $table->unsignedInteger('device_id')->default(0)->index();
             $table->integer('toner_index');
             $table->string('toner_type', 64);
             $table->string('toner_oid', 64);
@@ -31,8 +30,8 @@ class CreateTonerTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('toner');
     }
-}
+};

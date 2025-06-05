@@ -1,4 +1,5 @@
 <?php
+
 /**
  * CheckInstalled.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -26,21 +27,38 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Request;
+use LibreNMS\Util\EnvHelper;
+use Symfony\Component\HttpFoundation\Response;
 
 class CheckInstalled
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
+     * @param  Request  $request
+     * @param  Closure  $next
      */
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
-        if (!file_exists(base_path('config.php')) && !$request->is('install.php')) {
-            // no config.php does so let's redirect to the install
-            return redirect(url('/install.php'));
+        $installed = ! config('librenms.install') && file_exists(base_path('.env'));
+        $is_install_route = $request->is('install*');
+
+        // further middleware will fail without an app key, init one
+        if (empty(config('app.key'))) {
+            config(['app.key' => EnvHelper::init()]);
+        }
+
+        if (! $installed && ! $is_install_route) {
+            // redirect to install if not installed
+            return redirect()->route('install');
+        } elseif ($installed && $is_install_route) {
+            // in case someone refreshes on the finish step
+            if ($request->routeIs('install.finish')) {
+                return redirect()->route('home');
+            }
+            throw new AuthorizationException('This should only be called during install');
         }
 
         return $next($request);

@@ -1,7 +1,5 @@
 <?php
 
-$class      = 'voltage';
-$unit       = 'V';
-$graph_type = 'sensor_voltage';
+$class = 'voltage';
 
 require 'sensors.inc.php';

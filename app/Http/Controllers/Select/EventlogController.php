@@ -1,4 +1,5 @@
 <?php
+
 /**
  * EventlogController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -29,6 +30,8 @@ use App\Models\Eventlog;
 
 class EventlogController extends SelectController
 {
+    protected $default_sort = ['type' => 'asc'];
+
     /**
      * Defines validation rules (will override base validation rules for select2 responses too)
      *
@@ -43,9 +46,20 @@ class EventlogController extends SelectController
     }
 
     /**
+     * Defines sortable fields.  The incoming sort field should be the key, the sql column or DB::raw() should be the value
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return array
+     */
+    protected function sortFields($request)
+    {
+        return ['type'];
+    }
+
+    /**
      * Defines search fields will be searched in order
      *
-     * @param \Illuminate\Http\Request $request
+     * @param  \Illuminate\Http\Request  $request
      * @return array
      */
     protected function searchFields($request)
@@ -56,7 +70,7 @@ class EventlogController extends SelectController
     /**
      * Defines the base query for this resource
      *
-     * @param \Illuminate\Http\Request $request
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder
      */
     protected function baseQuery($request)

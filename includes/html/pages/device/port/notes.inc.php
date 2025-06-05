@@ -12,7 +12,7 @@
 $pagetitle[] = 'Notes';
 $port_id_notes = 'port_id_notes:' . $port['port_id'];
 $device_id = $device['device_id'];
-$data = get_dev_attrib($device, $port_id_notes);
+$data = get_dev_attrib($device, $port_id_notes) ?? '';
 ?>
 
 <form class="form-horizontal" action="" method="post">
@@ -31,7 +31,7 @@ $data = get_dev_attrib($device, $port_id_notes);
             echo '
             <button type="submit" name="btn-update-notes" id="btn-update-notes" class="btn btn-primary">Submit</button>
             ';
-?>
+            ?>
         </div>
     </div>
 </form>

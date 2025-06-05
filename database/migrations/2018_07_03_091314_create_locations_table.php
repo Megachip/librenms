@@ -3,21 +3,20 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateLocationsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('locations', function (Blueprint $table) {
             $table->increments('id');
-            $table->string('location')->unique('locations_location_uindex');
-            $table->float('lat', 10, 6)->nullable();
-            $table->float('lng', 10, 6)->nullable();
+            $table->string('location')->unique();
+            $table->decimal('lat', 10, 8)->nullable();
+            $table->decimal('lng', 11, 8)->nullable();
             $table->dateTime('timestamp');
         });
     }
@@ -27,8 +26,8 @@ class CreateLocationsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('locations');
     }
-}
+};

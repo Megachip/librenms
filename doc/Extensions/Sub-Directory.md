@@ -1,6 +1,3 @@
-source: Extensions/Sub-Directory.md
-path: blob/master/doc/
-
 To run LibreNMS under a subdirectory on your Apache server, the
 directives for the LibreNMS directory are placed in the base server
 configuration, or in a virtual host container of your choosing. If
@@ -27,5 +24,4 @@ reference the subdirectory name. Assuming LibreNMS is running at
 <http://example.com/librenms/>, you will need to change `RewriteBase /`
 to `RewriteBase /librenms`.
 
-Finally, set `APP_URL=/librenms/` in .env and `$config["base_url"] =
-'/librenms/';` in config.php.
+Finally, set `APP_URL=/librenms/` in .env and `lnms config:set base_url '/librenms/'`.

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * AddUserCommand.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -30,6 +31,7 @@ use App\Models\User;
 use Illuminate\Validation\Rule;
 use LibreNMS\Authentication\LegacyAuth;
 use LibreNMS\Config;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -50,7 +52,7 @@ class AddUserCommand extends LnmsCommand
 
         $this->addArgument('username', InputArgument::REQUIRED);
         $this->addOption('password', 'p', InputOption::VALUE_REQUIRED);
-        $this->addOption('role', 'r', InputOption::VALUE_REQUIRED, __('commands.user:add.options.role', ['roles' => '[normal, global-read, admin]']), 'normal');
+        $this->addOption('role', 'r', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, __('commands.user:add.options.role', ['roles' => '[user, global-read, admin]']), ['user']);
         $this->addOption('email', 'e', InputOption::VALUE_REQUIRED);
         $this->addOption('full-name', 'l', InputOption::VALUE_REQUIRED);
         $this->addOption('descr', 's', InputOption::VALUE_REQUIRED);
@@ -58,36 +60,30 @@ class AddUserCommand extends LnmsCommand
 
     /**
      * Execute the console command.
-     *
-     * @return mixed
      */
-    public function handle()
+    public function handle(): int
     {
         if (Config::get('auth_mechanism') != 'mysql') {
             $this->warn(__('commands.user:add.wrong-auth'));
         }
 
-        $roles = [
-            'normal' => 1,
-            'global-read' => 5,
-            'admin' => 10
-        ];
+        $roles = Role::query()->pluck('name')
+            ->whenEmpty(fn () => collect(['admin', 'global-read', 'user']));
 
         $this->validate([
             'username' => ['required', Rule::unique('users', 'username')->where('auth_type', 'mysql')],
             'email' => 'nullable|email',
-            'role' => Rule::in(array_keys($roles))
+            'role.*' => Rule::in($roles),
         ]);
 
         // set get password
         $password = $this->option('password');
-        if (!$password) {
+        if (! $password) {
             $password = $this->secret(__('commands.user:add.password-request'));
         }
 
         $user = new User([
             'username' => $this->argument('username'),
-            'level' => $roles[$this->option('role')],
             'descr' => $this->option('descr'),
             'email' => $this->option('email'),
             'realname' => $this->option('full-name'),
@@ -96,11 +92,13 @@ class AddUserCommand extends LnmsCommand
 
         $user->setPassword($password);
         $user->save();
+        $user->assignRole($this->option('role'));
 
-        $user->auth_id = LegacyAuth::get()->getUserid($user->username) ?: $user->user_id;
+        $user->auth_id = (string) LegacyAuth::get()->getUserid($user->username) ?: $user->user_id;
         $user->save();
 
         $this->info(__('commands.user:add.success', ['username' => $user->username]));
+
         return 0;
     }
 }

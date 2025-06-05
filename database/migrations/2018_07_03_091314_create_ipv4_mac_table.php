@@ -3,22 +3,22 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateIpv4MacTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ipv4_mac', function (Blueprint $table) {
-            $table->unsignedInteger('port_id')->index('port_id');
+            $table->id();
+            $table->unsignedInteger('port_id')->index();
             $table->unsignedInteger('device_id')->nullable();
-            $table->string('mac_address', 32)->index('mac_address');
+            $table->string('mac_address', 32)->index();
             $table->string('ipv4_address', 32);
-            $table->string('context_name', 128);
+            $table->string('context_name', 128)->nullable();
         });
     }
 
@@ -27,8 +27,8 @@ class CreateIpv4MacTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ipv4_mac');
     }
-}
+};

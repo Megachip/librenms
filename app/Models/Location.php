@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Location.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -27,28 +28,35 @@ namespace App\Models;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use LibreNMS\Util\Dns;
 
+/**
+ * @method static \Database\Factories\LocationFactory factory(...$parameters)
+ */
 class Location extends Model
 {
+    use HasFactory;
+
     public $fillable = ['location', 'lat', 'lng'];
     const CREATED_AT = null;
     const UPDATED_AT = 'timestamp';
 
     private $location_regex = '/\[\s*(?<lat>[-+]?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?))\s*,\s*(?<lng>[-+]?(?:180(?:\.0+)?|(?:(?:1[0-7]\d)|(?:[1-9]?\d))(?:\.\d+)?))\s*\]/';
-
+    private $location_ignore_regex = '/\(.*?\)/';
 
     /**
-     * Set up listeners for this Model
+     * @return array{lat: 'float', lng: 'float', fixed_coordinates: 'bool'}
      */
-    public static function boot()
+    protected function casts(): array
     {
-        parent::boot();
-
-        static::creating(function (Location $location) {
-            // parse coordinates for new locations
-            $location->lookupCoordinates();
-        });
+        return [
+            'lat' => 'float',
+            'lng' => 'float',
+            'fixed_coordinates' => 'bool',
+        ];
     }
 
     // ---- Helper Functions ----
@@ -60,7 +68,7 @@ class Location extends Model
      */
     public function hasCoordinates()
     {
-        return !(is_null($this->lat) || is_null($this->lng));
+        return ! (is_null($this->lat) || is_null($this->lng));
     }
 
     /**
@@ -74,39 +82,57 @@ class Location extends Model
     }
 
     /**
-     * Try to parse coordinates then
-     * call geocoding API to resolve latitude and longitude.
+     * Try to parse coordinates
+     * then try to lookup DNS LOC records if hostname is provided
+     * then call geocoding API to resolve latitude and longitude.
+     *
+     * @param  string  $hostname
+     * @return bool
      */
-    public function lookupCoordinates()
+    public function lookupCoordinates($hostname = null)
     {
-        if (!$this->hasCoordinates() && $this->location) {
-            $this->parseCoordinates();
+        if ($this->location && $this->parseCoordinates()) {
+            return true;
+        }
 
-            if (!$this->hasCoordinates() &&
-                \LibreNMS\Config::get('geoloc.latlng', true) &&
-                (!$this->id || $this->timestamp && $this->timestamp->diffInDays() > 2)
-            ) {
-                $this->fetchCoordinates();
-                $this->updateTimestamps();
+        if ($hostname && \LibreNMS\Config::get('geoloc.dns')) {
+            $coord = app(Dns::class)->getCoordinates($hostname);
+
+            if (! empty($coord)) {
+                $this->fill($coord);
+
+                return true;
             }
         }
+
+        if ($this->location && ! $this->hasCoordinates() && \LibreNMS\Config::get('geoloc.latlng', true)) {
+            return $this->fetchCoordinates();
+        }
+
+        return false;
     }
 
     /**
      * Remove encoded GPS for nicer display
      *
+     * @param  bool  $withCoords
      * @return string
      */
-    public function display()
+    public function display($withCoords = false)
     {
-        return trim(preg_replace($this->location_regex, '', $this->location)) ?: $this->location;
+        return (trim(preg_replace($this->location_regex, '', $this->location)) ?: $this->location)
+            . ($withCoords && $this->coordinatesValid() ? " [$this->lat,$this->lng]" : '');
     }
 
     protected function parseCoordinates()
     {
         if (preg_match($this->location_regex, $this->location, $parsed)) {
             $this->fill($parsed);
+
+            return true;
         }
+
+        return false;
     }
 
     protected function fetchCoordinates()
@@ -114,17 +140,23 @@ class Location extends Model
         try {
             /** @var \LibreNMS\Interfaces\Geocoder $api */
             $api = app(\LibreNMS\Interfaces\Geocoder::class);
-            $this->fill($api->getCoordinates($this->location));
+
+            // Removes Location info inside () when looking up lat/lng
+            $this->fill($api->getCoordinates(preg_replace($this->location_ignore_regex, '', $this->location)));
+
+            return true;
         } catch (BindingResolutionException $e) {
             // could not resolve geocoder, Laravel isn't booted. Fail silently.
         }
+
+        return false;
     }
 
     // ---- Query scopes ----
 
     /**
-     * @param Builder $query
-     * @param User $user
+     * @param  Builder  $query
+     * @param  User  $user
      * @return Builder
      */
     public function scopeHasAccess($query, $user)
@@ -138,7 +170,7 @@ class Location extends Model
             ->whereNotNull('location_id')
             ->pluck('location_id');
 
-        return $query->whereIn('id', $ids);
+        return $query->whereIntegerInRaw('id', $ids);
     }
 
     public function scopeInDeviceGroup($query, $deviceGroup)
@@ -148,12 +180,13 @@ class Location extends Model
         });
     }
 
-
     // ---- Define Relationships ----
-
-    public function devices()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Device, $this>
+     */
+    public function devices(): HasMany
     {
-        return $this->hasMany('App\Models\Device', 'location_id');
+        return $this->hasMany(Device::class, 'location_id');
     }
 
     public function __toString()

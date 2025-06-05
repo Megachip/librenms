@@ -3,18 +3,18 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateProcessesTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('processes', function (Blueprint $table) {
-            $table->unsignedInteger('device_id')->index('device_id');
+            $table->id();
+            $table->unsignedInteger('device_id')->index();
             $table->integer('pid');
             $table->integer('vsz');
             $table->integer('rss');
@@ -29,8 +29,8 @@ class CreateProcessesTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('processes');
     }
-}
+};

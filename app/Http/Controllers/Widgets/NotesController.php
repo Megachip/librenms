@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NotesController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -26,8 +27,6 @@
 namespace App\Http\Controllers\Widgets;
 
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use LibreNMS\Util\Html;
 
 class NotesController extends WidgetController
 {
@@ -46,8 +45,8 @@ class NotesController extends WidgetController
         }
 
         $purifier_config = [
-            'HTML.Allowed'    => 'b,iframe[frameborder|src|width|height],i,ul,ol,li,h1,h2,h3,h4,br,p,pre',
-            'HTML.Trusted'    => true,
+            'HTML.Allowed' => 'b,iframe[frameborder|src|width|height],i,ul,ol,li,h1,h2,h3,h4,br,p,pre',
+            'HTML.Trusted' => true,
             'HTML.SafeIframe' => true,
             'URI.SafeIframeRegexp' => '%^(https?:)?//%',
         ];

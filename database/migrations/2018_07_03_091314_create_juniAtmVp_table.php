@@ -3,19 +3,19 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateJuniAtmVpTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('juniAtmVp', function (Blueprint $table) {
+            $table->id();
             $table->unsignedInteger('juniAtmVp_id');
-            $table->unsignedInteger('port_id')->index('port_id');
+            $table->unsignedInteger('port_id')->index();
             $table->unsignedInteger('vp_id');
             $table->string('vp_descr', 32);
         });
@@ -26,8 +26,8 @@ class CreateJuniAtmVpTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('juniAtmVp');
     }
-}
+};

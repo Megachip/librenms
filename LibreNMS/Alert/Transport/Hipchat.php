@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2014 Daniel Preussker <f0o@devilcode.org>, Tyler Christiansen <code@tylerc.me>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /*
  * API Transport
@@ -21,93 +22,77 @@
  * @package LibreNMS
  * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Enum\AlertState;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Hipchat extends Transport
 {
-    public function deliverAlert($obj, $opts)
-    {
-        $hipchat_opts = $this->parseUserOptions($this->config['hipchat-options']);
-        $hipchat_opts['url'] = $this->config['hipchat-url'];
-        $hipchat_opts['room_id'] = $this->config['hipchat-room-id'];
-        $hipchat_opts['from'] = $this->config['hipchat-from-name'];
+    protected string $name = 'HipChat';
 
-        return $this->contactHipchat($obj, $hipchat_opts);
-    }
-
-    public function contactHipchat($obj, $option)
+    public function deliverAlert(array $alert_data): bool
     {
-        $version = 1;
-        if (stripos($option['url'], "v2")) {
-            $version = 2;
+        $options = $this->parseUserOptions($this->config['hipchat-options']);
+
+        // override legacy options
+        if (array_key_exists('hipchat-notify', $this->config)) {
+            $options['notify'] = ($this->config['hipchat-notify'] == 'on');
         }
+        if (isset($this->config['hipchat-message_format'])) {
+            $options['message_format'] = $this->config['hipchat-message_format'];
+        }
+
+        $url = $this->config['hipchat-url'];
+        $version = str_contains($url, 'v2') ? 2 : 1;
 
         // Generate our URL from the base URL + room_id and the auth token if the version is 2.
-        $url = $option['url'];
         if ($version == 2) {
-            $url .= "/" . urlencode($option["room_id"]) . "/notification?auth_token=" . urlencode($option["auth_token"]);
-        }
-        foreach ($obj as $key => $value) {
-            $api = str_replace("%" . $key, $method == "get" ? urlencode($value) : $value, $api);
-        }
-        $curl = curl_init();
-
-        if (empty($obj["msg"])) {
-            return "Empty Message";
-        }
-
-        if (empty($option["message_format"])) {
-            $option["message_format"] = 'text';
+            $url .= '/' . urlencode($this->config['hipchat-room-id']) . '/notification';
         }
 
         // Sane default of making the message color green if the message indicates
         // that the alert recovered.   If it rebooted, make it yellow.
-        if (stripos($obj["msg"], "recovered")) {
-            $color = "green";
-        } elseif (stripos($obj["msg"], "rebooted")) {
-            $color = "yellow";
+        if ($alert_data['state'] == AlertState::RECOVERED) {
+            $color = 'green';
+        } elseif (str_contains($alert_data['msg'], 'rebooted')) {
+            $color = 'yellow';
+        } elseif (empty($options['color']) || $options['color'] == 'u') {
+            $color = 'red';
         } else {
-            if (empty($option["color"]) || $option["color"] == 'u') {
-                $color = 'red';
-            } else {
-                $color = $option["color"];
-            }
+            $color = $options['color'];
         }
 
-        $data[] = "message=" . urlencode($obj["msg"]);
+        $data = [
+            'message' => $alert_data['msg'],
+            'from' => $this->config['hipchat-from-name'] ?: 'LibreNMS',
+            'color' => $color,
+            'notify' => $options['notify'] ?? '1',
+            'message_format' => $options['message_format'] ?: 'text',
+        ];
         if ($version == 1) {
-            $data[] = "room_id=" . urlencode($option["room_id"]);
-        }
-        $data[] = "from=" . urlencode($option["from"]);
-        $data[] = "color=" . urlencode($color);
-        $data[] = "notify=" . urlencode($option["notify"]);
-        $data[] = "message_format=" . urlencode($option["message_format"]);
-
-        $data = implode('&', $data);
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/x-www-form-urlencoded',
-        ));
-        $ret = curl_exec($curl);
-
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200 && $code != 204) {
-            var_dump("API '$url' returned Error");
-            var_dump("Params: " . $message);
-            var_dump("Return: " . $ret);
-            return 'HTTP Status code ' . $code;
+            $data['room_id'] = $this->config['hipchat-room-id'];
         }
 
-        return true;
+        $client = Http::client();
+
+        if ($version == 2) {
+            $client->withToken($options['auth_token']);
+        }
+
+        $res = $client->post($url, $data);
+
+        if ($res->successful()) {
+            return true;
+        }
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $data['message'], $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -135,11 +120,29 @@ class Hipchat extends Transport
                     'descr' => 'Hipchat Options',
                     'type' => 'textarea',
                 ],
+                [
+                    'title' => 'Notify?',
+                    'name' => 'hipchat-notify',
+                    'descr' => 'Send notification',
+                    'type' => 'checkbox',
+                    'default' => 'on',
+                ],
+                [
+                    'title' => 'Message Format',
+                    'name' => 'hipchat-message_format',
+                    'descr' => 'Format of message',
+                    'type' => 'select',
+                    'options' => [
+                        'Text' => 'text',
+                        'HTML' => 'html',
+                    ],
+                    'default' => 'text',
+                ],
             ],
             'validation' => [
                 'hipchat-url' => 'required|url',
                 'hipchat-room-id' => 'required|numeric',
-            ]
+            ],
         ];
     }
 }

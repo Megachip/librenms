@@ -13,7 +13,7 @@ class SnmptrapProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         //
     }
@@ -23,14 +23,12 @@ class SnmptrapProvider extends ServiceProvider
      *
      * @return void
      */
-    public function register()
+    public function register(): void
     {
-        $this->app->bind(SnmptrapHandler::class, function ($app, $oid) {
-            if ($handler = config('snmptraps.trap_handlers.' . reset($oid))) {
-                return $app->make($handler);
-            }
+        $this->app->bind(SnmptrapHandler::class, function ($app, $options) {
+            $oid = reset($options);
 
-            return $app->make(Fallback::class);
+            return $app->make(config('snmptraps.trap_handlers')[$oid] ?? Fallback::class);
         });
     }
 }

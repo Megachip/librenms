@@ -1,4 +1,5 @@
 <?php
+
 /**
  * app/Models/AlertTemplateMap.php
  *
@@ -15,15 +16,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
 
 namespace App\Models;
+
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AlertTemplateMap extends BaseModel
 {
@@ -31,9 +34,11 @@ class AlertTemplateMap extends BaseModel
     public $timestamps = false;
 
     // ---- Define Relationships ----
-
-    public function template()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\AlertTemplate, $this>
+     */
+    public function template(): BelongsTo
     {
-        return $this->belongsTo('App\Models\AlertTemplate', 'alert_templates_id');
+        return $this->belongsTo(AlertTemplate::class, 'alert_templates_id');
     }
 }

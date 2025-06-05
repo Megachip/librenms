@@ -1,12 +1,11 @@
-source: Extensions/Authentication.md
-path: blob/master/doc/
+# Authentication Options
 
-# Authentication modules
+LibreNMS supports multiple authentication modules along with [Two Factor Auth](Two-Factor-Auth.md).
+Here we will provide configuration details for these modules. Alternatively,
+you can use [Socialite Providers](OAuth-SAML.md) which supports a wide variety
+of social/OAuth/SAML authentication methods.
 
-LibreNMS supports multiple authentication modules along with [Two Factor Auth](http://docs.librenms.org/Extensions/Two-Factor-Auth/).
-Here we will provide configuration details for these modules.
-
-# Available authentication modules
+## Available authentication modules
 
 - MySQL: [mysql](#mysql-authentication)
 
@@ -25,33 +24,34 @@ Here we will provide configuration details for these modules.
 ⚠️ **When enabling a new authentication module, the local users will no
 longer be available to log in.**
 
-# Enable authentication module
+## Enable authentication module
 
 To enable a particular authentication module you need to set this up
 in config.php. Please note that only ONE module can be
-enabled. LibreNMS doesn't support multiple authentication mechanism at
+enabled. LibreNMS doesn't support multiple authentication mechanisms at
 the same time.
 
-```php
-$config['auth_mechanism'] = "mysql";
-```
+!!! setting "auth/general"
+    ```bash
+    lnms config:set auth_mechanism mysql
+    ```
 
-# User levels and User account type
+## Built-in user roles and User account type
 
-- 1: **Normal User**: You will need to assign device / port
-  permissions for users at this level.
+- **user**: You will need to assign device / port
+  permissions for users in this role.
 
-- 5: **Global Read**: Read only Administrator.
+- **global-read**: Read only Administrator.
 
-- 10: **Administrator**: This is a global read/write admin account.
+- **admin**: This is a global read/write admin account.
 
-- 11: **Demo Account**: Provides full read/write with certain
-  restrictions (i.e can't delete devices).
+- **demo**: Provides full read/write with certain
+  restrictions (i.e can't delete devices). Do not use this role.
 
 **Note** Oxidized configs can often contain sensitive data. Because of
 that only Administrator account type can see configs.
 
-# Note for SELinux users
+## Note for SELinux users
 
 When using SELinux on the LibreNMS server, you need to allow Apache
 (httpd) to connect LDAP/Active Directory server, this is disabled by
@@ -62,7 +62,7 @@ resources with this command:
 setsebool -P httpd_can_connect_ldap=1
 ```
 
-# Testing authentication
+## Testing authentication
 
 You can test authentication with this script:
 
@@ -72,241 +72,315 @@ You can test authentication with this script:
 
 Enable debug output to troubleshoot issues
 
-# MySQL Authentication
+## MySQL Authentication
 
-Config option: `mysql`
+!!! setting "auth/general"
+    ```bash
+    lnms config:set auth_mechanism mysql
+    ```
 
-This is default option with LibreNMS so you should have already have
-the configuration setup.
+This is default option with LibreNMS so you should have already have the following configuration setup
+in your environment file (.env).
 
-```php
-$config['db_host'] = "HOSTNAME";
-$config['db_user'] = "DBUSER";
-$config['db_pass'] = "DBPASS";
-$config['db_name'] = "DBNAME";
+```dotenv
+DB_HOST=HOSTNAME
+DB_DATABASE=DBNAME
+DB_USERNAME=DBUSER
+DB_PASSWORD="DBPASS"
 ```
 
-# Active Directory Authentication
+## Active Directory Authentication
 
-Config option: `active_directory`
+!!! setting "auth/general"
+    ```bash
+    lnms config:set auth_mechanism active_directory
+    ```
 
-Install __php_ldap__  or __php7.0-ldap__, making sure to install the
+Install __php-ldap__  or __php8.1-ldap__, making sure to install the
 same version as PHP.
 
 If you have issues with secure LDAP try setting
-`$config['auth_ad_check_certificates']` to `0`, this will ignore
-certificate errors.
+!!! setting "auth/ad"
+    ```bash
+    lnms config:set auth_ad_check_certificates 0
+    ```
+this will ignore certificate errors.
 
-## Require actual membership of the configured groups
+### Require actual membership of the configured groups
 
-If you set `$config['auth_ad_require_groupmembership']` to 1, the
+!!! setting "auth/ad"
+    ```bash
+    lnms config:set auth_ad_require_groupmembership 1
+    ```
+
+If you set `auth_ad_require_groupmembership` to 1, the
 authenticated user has to be a member of the specific group.
-Otherwise all users can authenticate, and will be either level 0 or
-you may set `$config['auth_ad_global_read']` to 1 and all users will
-have read only access unless otherwise specified.
+Otherwise all users can authenticate, and will have no default roles or
+you may set `auth_ad_global_read` to 1 and all users will
+have the role 'global-read' and have read only access to all devices.
 
-## Old account cleanup
+### Old account cleanup
 
 Cleanup of old accounts is done by checking the authlog. You will need
 to set the number of days when old accounts will be purged
 AUTOMATICALLY by daily.sh.
 
-Please ensure that you set the $config['authlog_purge'] value to be
-greater than $config['active_directory']['users_purge'] otherwise old
+Please ensure that you set the `authlog_purge` value to be
+greater than `active_directory.users_purge` otherwise old
 users won't be removed.
 
-## Sample configuration
+### Sample configuration
 
-```php
-$config['auth_mechanism'] = 'active_directory';
-$config['auth_ad_url'] = 'ldaps://server.example.com';    // Set server(s), space separated. Prefix with ldaps:// for ssl
-$config['auth_ad_domain'] = 'example.com';
-$config['auth_ad_base_dn'] = 'dc=example,dc=com';         // groups and users must be under this dn
-$config['auth_ad_check_certificates'] = true;             // require a valid ssl certificate
-$config['auth_ad_binduser'] = 'examplebinduser';          // bind user (non-admin)
-$config['auth_ad_bindpassword'] = 'examplepassword';      // bind password
-$config['auth_ad_timeout'] = 5;                           // time to wait before giving up (or trying the next server)
-$config['auth_ad_debug'] = false;                         // enable for verbose debug messages
-$config['active_directory']['users_purge'] = 30;          // purge users who haven't logged in for 30 days.
-$config['auth_ad_require_groupmembership'] = true;        // false: allow all users to auth level 0
-$config['auth_ad_groups']['ad-admingroup']['level'] = 10; // set the "AD AdminGroup" group to admin level
-$config['auth_ad_groups']['ad-usergroup']['level'] = 5;   // set the "AD UserGroup" group to global read only level
-
-```
+!!! setting "auth/general"
+    ```bash
+    lnms config:set auth_mechanism active_directory
+    lnms config:set auth_ad_url ldaps://server.example.com
+    lnms config:set auth_ad_domain
+    lnms config:set auth_ad_base_dn dc=example,dc=com
+    lnms config:set auth_ad_check_certificates true
+    lnms config:set auth_ad_binduser examplebinduser
+    lnms config:set auth_ad_bindpassword examplepassword
+    lnms config:set auth_ad_timeout 5
+    lnms config:set auth_ad_debug false
+    lnms config:set active_directory.users_purge 30
+    lnms config:set auth_ad_require_groupmembership true
+    lnms config:set auth_ad_groups.ad-admingroup.roles ["admin"]
+    lnms config:set auth_ad_groups.ad-usergroup.roles ["global-read"]
+    ```
 
 Replace `ad-admingroup` with your Active Directory admin-user group
 and `ad-usergroup` with your standard user group. It is __highly
 suggested__ to create a bind user, otherwise "remember me", alerting
 users, and the API will not work.
 
-## Active Directory redundancy
+### Active Directory redundancy
 
 You can set two Active Directory servers by editing the
-`$config['auth_ad_url']` like this example:
+`auth_ad_url` setting like this example:
 
-```
-$config['auth_ad_url'] = "ldaps://dc1.example.com ldaps://dc2.example.com";
-```
+!!! setting "auth/ad"
+    ```bash
+    lnms config:set auth_ad_url "ldaps://dc1.example.com ldaps://dc2.example.com"
+    ```
 
-## Active Directory LDAP filters
+### Active Directory LDAP filters
 
 You can add an LDAP filter to be ANDed with the builtin user filter (`(sAMAccountName=$username)`).
 
 The defaults are:
 
-```
-$config['auth_ad_user_filter'] = "(objectclass=user)";
-$config['auth_ad_group_filter'] = "(objectclass=group)";
-```
+!!! setting "auth/ad"
+    ```
+    lnms config:set auth_ad_user_filter "(objectclass=user)"
+    lnms config:set auth_ad_group_filter "(objectclass=group)"
+    ```
 
 This yields `(&(objectclass=user)(sAMAccountName=$username))` for the
 user filter and `(&(objectclass=group)(sAMAccountName=$group))` for
 the group filter.
 
-# LDAP Authentication
+### SELinux configuration
 
-Config option: `ldap`
+On RHEL / CentOS / Fedora, in order for LibreNMS to reach Active Directory, you need to allow LDAP requests in SELinux:
+```
+setsebool -P httpd_can_connect_ldap 1
+```
+
+## LDAP Authentication
+
+!!! setting "auth/general"
+    ```bash
+    lnms config:set auth_mechanism ldap
+    ```
 
 Install __php_ldap__ or __php7.0-ldap__, making sure to install the
 same version as PHP.
 
-## Standard config
+For the below, keep in mind the auth DN is composed using a string
+join of `auth_ldap_prefix`, the username, and `auth_ldap_suffix`. This
+means it needs to include `=` in the prefix and `,` in the suffix. So
+lets say we have a prefix of `uid=`, the user `derp`, and the suffix of
+`,ou=users,dc=foo,dc=bar`, then the result is
+`uid=derp,ou=users,dc=foo,dc=bar`.
 
-```php
-$config['auth_mechanism'] = 'ldap';
-$config['auth_ldap_server'] = 'ldap.example.com';               // Set server(s), space separated. Prefix with ldaps:// for ssl
-$config['auth_ldap_suffix'] = ',ou=People,dc=example,dc=com';   // appended to usernames
-$config['auth_ldap_groupbase'] = 'ou=groups,dc=example,dc=com'; // all groups must be inside this
-$config['auth_ldap_groups']['admin']['level'] = 10;             // set admin group to admin level
-$config['auth_ldap_groups']['pfy']['level'] = 5;                // set pfy group to global read only level
-$config['auth_ldap_groups']['support']['level'] = 1;            // set support group as a normal user
-```
+### Standard config
 
-## Additional options (usually not needed)
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_server ldap.example.com
+    lnms config:set auth_ldap_suffix ',ou=People,dc=example,dc=com'
+    lnms config:set auth_ldap_groupbase 'ou=groups,dc=example,dc=com'
+    lnms config:set auth_ldap_groups.admin.roles ["admin"]
+    lnms config:set auth_ldap_groups.pfy.roles ["global-read"]
+    lnms config:set auth_ldap_groups.support.roles ["user"]
+    ```
 
-```php
-$config['auth_ldap_version'] = 3; # v2 or v3
-$config['auth_ldap_port'] = 389;                    // 389 or 636 for ssl
-$config['auth_ldap_starttls'] = True;               // Enable TLS on port 389
-$config['auth_ldap_prefix'] = 'uid=';               // prepended to usernames
-$config['auth_ldap_group']  = 'cn=groupname,ou=groups,dc=example,dc=com'; // generic group with level 0
-$config['auth_ldap_groupmemberattr'] = 'memberUid'; // attribute to use to see if a user is a member of a group
-$config['auth_ldap_uid_attribute'] = 'uidnumber';   // attribute for unique id
-$config['auth_ldap_debug'] = false;                 // enable for verbose debug messages
-$config['auth_ldap_userdn'] = true;                 // Uses a users full DN as the value of the member attribute in a group instead of member: username. (it’s member: uid=username,ou=groups,dc=domain,dc=com)
-$config['auth_ldap_userlist_filter'] = 'service=informatique'; // Replace 'service=informatique' by your ldap filter to limit the number of responses if you have an ldap directory with thousand of users
-$config['auth_ldap_wildcard_ou'] = false; // Search for user matching user name independently of OU set in auth_ldap_suffix. Useful if your users are in different OU. Bind username, if set, still user auth_ldap_suffix
-```
+### Additional options (usually not needed)
 
-## LDAP bind user (optional)
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_version 3
+    lnms config:set auth_ldap_port 389
+    lnms config:set auth_ldap_starttls true
+    lnms config:set auth_ldap_prefix 'uid='
+    lnms config:set auth_ldap_group 'cn=groupname,ou=groups,dc=example,dc=com'
+    lnms config:set auth_ldap_groupmemberattr memberUid
+    lnms config:set auth_ldap_groupmembertype username
+    lnms config:set auth_ldap_uid_attribute uidnumber
+    lnms config:set auth_ldap_timeout 5
+    lnms config:set auth_ldap_emailattr mail
+    lnms config:set auth_ldap_attr.uid uid
+    lnms config:set auth_ldap_debug false
+    lnms config:set auth_ldap_userdn true
+    lnms config:set auth_ldap_userlist_filter service=informatique
+    lnms config:set auth_ldap_wildcard_ou false
+    lnms config:set auth_ldap_cacertfile /opt/librenms/ldap-ca-cert
+    lnms config:set auth_ldap_ignorecert false
+    ```
+
+### LDAP bind user (optional)
 
 If your ldap server does not allow anonymous bind, it is highly
 suggested to create a bind user, otherwise "remember me", alerting
 users, and the API will not work.
 
-```php
-$config['auth_ldap_binduser'] = 'ldapbind'; // will use auth_ldap_prefix and auth_ldap_suffix
-#$config['auth_ldap_binddn'] = 'CN=John.Smith,CN=Users,DC=MyDomain,DC=com'; // overrides binduser
-$config['auth_ldap_bindpassword'] = 'password';
-```
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_binduser ldapbind
+    lnms config:set auth_ldap_binddn 'CN=John.Smith,CN=Users,DC=MyDomain,DC=com'
+    lnms config:set auth_ldap_bindpassword password
+    ```
 
-## LDAP server redundancy
+### LDAP server redundancy
 
 You can set two LDAP servers by editing the
-`$config['auth_ldap_server']` like this example:
+`auth_ldap_server` like this example:
 
-```
-$config['auth_ldap_server'] = "ldaps://dir1.example.com ldaps://dir2.example.com";
-```
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_server ldaps://dir1.example.com ldaps://dir2.example.com
+    ```
 
 An example config setup for use with Jumpcloud LDAP as a service is:
 
-```php
-$config['auth_mechanism'] = "ldap";
-$config['auth_ldap_version'] = 3;
-$config['auth_ldap_server'] = "ldap.jumpcloud.com"; #Set to ldaps://ldap.jumpcloud.com to enable LDAPS
-$config['auth_ldap_port'] = 389; #Set to 636 if using LDAPS
-$config['auth_ldap_prefix'] = "uid=";
-$config['auth_ldap_suffix'] = ",ou=Users,o={id},dc=jumpcloud,dc=com";
-$config['auth_ldap_groupbase'] = "ou=Users,o={id},dc=jumpcloud,dc=com";
-$config['auth_ldap_groupmemberattr'] = "member";
-$config['auth_ldap_groups'] = ['{group}' => ['level' => 10],];
-$config['auth_ldap_userdn'] = true;
-```
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_mechanism ldap
+    lnms config:set auth_ldap_version 3
+    lnms config:set auth_ldap_server ldap.jumpcloud.com
+    lnms config:set auth_ldap_port 389
+    lnms config:set auth_ldap_prefix 'uid=';
+    lnms config:set auth_ldap_suffix ',ou=Users,o={id},dc=jumpcloud,dc=com'
+    lnms config:set auth_ldap_groupbase 'ou=Users,o={id},dc=jumpcloud,dc=com'
+    lnms config:set auth_ldap_groupmemberattr member
+    lnms config:set auth_ldap_groups.{group}.roles ["admin"]
+    lnms config:set auth_ldap_userdn true
+    ```
 
 Replace {id} with the unique ID provided by Jumpcloud.  Replace
 {group} with the unique group name created in Jumpcloud.  This field
 is case sensitive.
 
 Note: If you have multiple user groups to define individual access
-levels replace the `$config['auth_ldap_groups']` line with the
-following:
+roles replace the `auth_ldap_groups` line with the following:
 
-```php
-$config['auth_ldap_groups'] = [
-    '{admin_group}' => ['level' => 10],
-    '{global_readonly_group}' => ['level' => 5],
-];
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_groups.{admin_group}.roles ["admin"]
+    lnms config:set auth_ldap_groups.{global_readonly_group}.roles ["global-read"]
+    ```
+
+### SELinux configuration
+
+On RHEL / CentOS / Fedora, in order for LibreNMS to reach LDAP, you need to allow LDAP requests in SELinux:
+```
+setsebool -P httpd_can_connect_ldap 1
 ```
 
-# Radius Authentication
+## Radius Authentication
 
 Please note that a mysql user is created for each user the logs in
-successfully. User level 1 is assigned to those accounts so you will
-then need to assign the relevant permissions unless you set
-`$config['radius']['userlevel']` to be something other than 1.
+successfully. Users are assigned the `user` role by default,
+unless radius sends a reply attribute with a role.
 
-```php
-$config['radius']['hostname']   = 'localhost';
-$config['radius']['port']       = '1812';
-$config['radius']['secret']     = 'testing123';
-$config['radius']['timeout']    = 3;
-$config['radius']['users_purge'] = 14;//Purge users who haven't logged in for 14 days.
-$config['radius']['default_level'] = 1;//Set the default user level when automatically creating a user.
-```
+You can change the default role(s) by setting
+!!! setting "auth/radius"
+    ```bash
+    lnms config:set radius.default_roles '["csr"]'
+    ```
 
-## Old account cleanup
+The attribute `Filter-ID` is a standard Radius-Reply-Attribute (string) that
+can be assigned a specially formatted string to assign a single role to the user.
+
+The string to send in `Filter-ID` reply attribute must start with `librenms_role_` followed by the role name.
+For example to set the admin role send `librenms_role_admin`.
+
+The following strings correspond to the built-in roles, but any defined role can be used:
+- `librenms_role_normal` - Sets the normal user .
+- `librenms_role_admin` - Sets the administrator role.
+- `librenms_role_global-read` - Sets the global-read role
+
+LibreNMS will ignore any other strings sent in `Filter-ID` and revert to default role that is set in your config.
+
+!!! setting "auth/radius"
+    ```bash
+    lnms config:set radius.hostname localhost
+    lnms config:set radius.port 1812
+    lnms config:set radius.secret testing123
+    lnms config:set radius.timeout 3
+    lnms config:set radius.users_purge 14
+    lnms config:set radius.default_roles ["admin"]
+    ```
+
+### Radius Huntgroup
+
+Freeradius has a function called `Radius Huntgroup` which allows to send different attributes based on NAS.
+This may be utilized if you already use `Filter-ID` in your environment and also want to use radius with LibreNMS.
+
+### Old account cleanup
 
 Cleanup of old accounts is done by checking the authlog. You will need
 to set the number of days when old accounts will be purged
 AUTOMATICALLY by daily.sh.
 
-Please ensure that you set the $config['authlog_purge'] value to be
-greater than $config['radius']['users_purge'] otherwise old users
+Please ensure that you set the `authlog_purge` value to be
+greater than `radius.users_purge` otherwise old users
 won't be removed.
 
-# HTTP Authentication
+## <a name="http-auth"> HTTP Authentication</a>
+
 
 Config option: `http-auth`
 
 LibreNMS will expect the user to have authenticated via your
-webservice already. At this stage it will need to assign a userlevel
+webservice already. At this stage it will need to assign a local user
 for that user which is done in one of two ways:
 
 - A user exists in MySQL still where the usernames match up.
 
 - A global guest user (which still needs to be added into MySQL:
 
-```php
-$config['http_auth_guest'] = "guest";
-```
+!!! setting "auth/http"
+    ```bash
+    lnms config:set http_auth_guest guest
+    ```
 
-This will then assign the userlevel for guest to all authenticated users.
+This will then assign the guest user to all authenticated users.
 
-## HTTP Authentication / AD Authorization
+### HTTP Authentication / AD Authorization
 
 Config option: `ad-authorization`
 
-This module is a combination of ___http-auth___ and ___active_directory___
+This module is a combination of ___http-auth___ and ___active\_directory___
 
 LibreNMS will expect the user to have authenticated via your
 webservice already (e.g. using Kerberos Authentication in Apache) but
 will use Active Directory lookups to determine and assign the
-userlevel of a user. The userlevel will be calculated by using AD
-group membership information as the ___active_directory___ module
+role(s) of a user. The roles will be calculated by using AD
+group membership information as the ___active\_directory___ module
 does.
 
-The configuration is the same as for the ___active_directory___ module
+The configuration is the same as for the ___active\_directory___ module
 with two extra, optional options: auth_ad_binduser and
 auth_ad_bindpassword. These should be set to a AD user with read
 capabilities in your AD Domain in order to be able to perform
@@ -316,17 +390,18 @@ Directory server(s)).
 
 There is also one extra option for controlling user information caching: auth_ldap_cache_ttl.
 This option allows to control how long user information (user_exists,
-userid, userlevel) are cached within the PHP Session.
+userid, roles) are cached within the PHP Session.
 The default value is 300 seconds.
 To disable this caching (highly discourage) set this option to 0.
 
-```php
-$config['auth_ad_binduser']     = "ad_binduser";
-$config['auth_ad_bindpassword'] = "ad_bindpassword";
-$config['auth_ldap_cache_ttl']  = 300;
-```
+!!! setting "auth/ad"
+    ```bash
+    lnms config:set auth_ad_binduser ad_binduser
+    lnms config:set auth_ad_bindpassword ad_bindpassword
+    lnms config:set auth_ldap_cache_ttl 300
+    ```
 
-## HTTP Authentication / LDAP Authorization
+### HTTP Authentication / LDAP Authorization
 
 Config option: `ldap-authorization`
 
@@ -334,27 +409,79 @@ This module is a combination of ___http-auth___ and ___ldap___
 
 LibreNMS will expect the user to have authenticated via your
 webservice already (e.g. using Kerberos Authentication in Apache) but
-will use LDAP to determine and assign the userlevel of a user. The
-userlevel will be calculated by using LDAP group membership
+will use LDAP to determine and assign the role(s) of a user. The
+roles will be calculated by using LDAP group membership
 information as the ___ldap___ module does.
 
-The configuration is the same as for the ___ldap___ module with one extra option: auth_ldap_cache_ttl.
-This option allows to control how long user information (user_exists, userid, userlevel) are cached within the PHP Session.
+The configuration is similar to the ___ldap___ module with one extra option: auth_ldap_cache_ttl.
+This option allows to control how long user information (user_exists, userid, roles) are cached within the PHP Session.
 The default value is 300 seconds.
 To disabled this caching (highly discourage) set this option to 0.
 
-```php
-$config['auth_ldap_cache_ttl'] = 300;
-```
+#### Standard config
 
-# View/embedded graphs without being logged into LibreNMS
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_mechanism authorization
+    lnms config:set auth_ldap_server ldap.example.com
+    lnms config:set auth_ldap_suffix ,ou=People,dc=example,dc=com
+    lnms config:set auth_ldap_groupbase ou=groups,dc=example,dc=com
+    lnms config:set auth_ldap_groups.admin.roles ["admin"]
+    lnms config:set auth_ldap_groups.pfy.roles ["global-read"]
+    lnms config:set auth_ldap_groups.support.roles ["user"]
+    ```
 
-```php
-$config['allow_unauth_graphs_cidr'] = array('127.0.0.1/32');
-$config['allow_unauth_graphs'] = true;
-```
+auth_ldap_server: set server(s), space separated. Prefix with ldaps:// for ssl
+auth_ldap_suffix: appended to usernames
+auth_ldap_groupbase: all groups must be inside this
+auth_ldap_groups: set roles by group name
 
-# Single Sign-on
+#### Additional options (usually not needed)
+
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_version 3
+    lnms config:set auth_ldap_port 389
+    lnms config:set auth_ldap_starttls true
+    lnms config:set auth_ldap_prefix uid=
+    lnms config:set auth_ldap_group cn=groupname,ou=groups,dc=example,dc=com
+    lnms config:set auth_ldap_groupmemberattr memberUid
+    lnms config:set auth_ldap_groupmembertype username
+    lnms config:set auth_ldap_userlist_filter service=informatique
+    lnms config:set auth_ldap_cache_ttl 300
+    ```
+
+auth_ldap_port: 389 or 636 for ssl
+auth_ldap_prefix: prepended to usernames
+auth_ldap_group: generic group with no roles
+auth_ldap_groupmemberattr: attribute to use to see if a user is a member of a group
+auth_ldap_groupmembertype: username type to find group members by, either username (default), fulldn or puredn
+auth_ldap_userlist_filter: Replace 'service=informatique' by your ldap filter to limit the number of responses if you have an ldap directory with thousand of users
+
+#### LDAP bind user (optional)
+
+If your ldap server does not allow anonymous bind, it is highly
+suggested to create a bind user, otherwise "remember me", alerting
+users, and the API will not work.
+
+!!! setting "auth/ldap"
+    ```bash
+    lnms config:set auth_ldap_binduser ldapbind
+    lnms config:set auth_ldap_binddn CN=John.Smith,CN=Users,DC=MyDomain,DC=com
+    lnms config:set auth_ldap_bindpassword password
+    ```
+
+auth_ldap_binddn: overrides auth_ldap_binduser with a dn
+
+## View/embedded graphs without being logged into LibreNMS
+
+!!! setting "webui/graph"
+    ```bash
+    lnms config:set allow_unauth_graphs_cidr '["127.0.0.1/32"]'
+    lnms config:set allow_unauth_graphs true
+    ```
+
+## Single Sign-on
 
 The single sign-on mechanism is used to integrate with third party
 authentication providers that are managed outside of LibreNMS - such
@@ -376,7 +503,7 @@ about validating the configuration - if it finds that certain values
 in the configuration are not set, it will reject access rather than
 try and guess.
 
-## Basic Configuration
+### Basic Configuration
 
 To get up and running, all you need to do is configure the following values:
 
@@ -391,14 +518,14 @@ This, along with the defaults, sets up a basic Single Sign-on setup that:
 
 - Reads values from environment variables
 - Automatically creates users when they're first seen
-- Authomatically updates users with new values
+- Automatically updates users with new values
 - Gives everyone privilege level 10
 
 This happens to mimic the behaviour of [http-auth](#http-auth), so if
 this is the kind of setup you want, you're probably better of just
 going and using that mechanism.
 
-## Security
+### Security
 
 If there is a proxy involved (e.g. EZProxy, Azure AD Application
 Proxy, NGINX, mod_proxy) it's ___essential___ that you have some means
@@ -423,12 +550,12 @@ This configuration item should contain an array with a list of IP
 addresses or CIDR prefixes that are allowed to connect to LibreNMS and
 supply environment variables or headers.
 
-## Advanced Configuration Options
+### Advanced Configuration Options
 
-### User Attribute
+#### User Attribute
 
 If for some reason your relying party doesn't store the username in
-___REMOTE_USER___, you can override this choice.
+___REMOTE\_USER___, you can override this choice.
 
 ```php
 $config['sso']['user_attr'] = 'HTTP_UID';
@@ -440,7 +567,7 @@ user - it's a special case. If you're using something different you
 need to figure out of the ___HTTP\____ prefix is required or not
 yourself.
 
-### Automatic User Create/Update
+#### Automatic User Create/Update
 
 These are enabled by default:
 
@@ -466,15 +593,21 @@ $config['sso']['realname_attr'] = "displayName";
 $config['sso']['descr_attr']    = "unscoped-affiliation
 ```
 
-### Group Strategies
+#### Group Strategies
 
-#### Static
+SSO currently uses legacy levels instead of roles. Here is a map:
+1. user
+5. global-read
+10. admin
+11. demo
+
+##### Static
 
 As used above, ___static___ gives every single user the same privilege
 level. If you're working with a small team, or don't need access
 control, this is probably suitable.
 
-#### Attribute
+##### Attribute
 
 ```php
 $config['sso']['group_strategy'] = "attribute";
@@ -483,12 +616,12 @@ $config['sso']['level_attr']     = "entitlement";
 
 If your Relying Party is capable of calculating the necessary
 privilege level, you can configure the module to read the privilege
-number straight from an attribute. ___sso_level_attr___ should contain
+number straight from an attribute. ___sso\_level\_attr___ should contain
 the name of the attribute that the Relying Party exposes to LibreNMS -
-as long as ___sso_mode___ is correctly set, the mechanism should find
+as long as ___sso\_mode___ is correctly set, the mechanism should find
 the value.
 
-#### Group Map
+##### Group Map
 
 This is the most flexible (and complex) way of assigning privileges.
 
@@ -499,15 +632,21 @@ $config['sso']['group_level_map'] = ['librenms-admins' => 10, 'librenms-readers'
 $config['sso']['group_delimiter'] = ';';
 ```
 
-The mechanism expects to find a delimited list of groups within the
-attribute that ___sso_group_attr___ points to. This should be an
-associative array of group name keys, with  privilege levels as
+This mechanism expects to find a delimited list of groups within the
+attribute that ___sso\_group\_attr___ points to. This should be an
+associative array of group name keys, with privilege levels as
 values. The mechanism will scan the list and find the ___highest___
 privilege level that the user is entitled to, and assign that value to
 the user.
 
-This format may be specific to Shibboleth; other relying party
-software may need changes to the mechanism (e.g. ___mod_auth_mellon___
+If there are no matches between the user's groups and the
+___sso\_group\_level\_map___, the user will be assigned the privilege level
+specified in the ___sso\_static\_level___ variable, with a default of 0 (no access).
+This feature can be used to provide a default access level (such as read-only)
+to all authenticated users.
+
+Additionally, this format may be specific to Shibboleth; other relying party
+software may need changes to the mechanism (e.g. ___mod\_auth\_mellon___
 may create pseudo arrays).
 
 There is an optional value for sites with large numbers of groups:
@@ -518,21 +657,25 @@ $config['sso']['group_filter']  = "/librenms-(.*)/i";
 
 This filter causes the mechanism to only consider groups matching a regular expression.
 
-### Logout Behaviour
+#### Logout Behaviour
 
 LibreNMS has no capability to log out a user authenticated via Single
-Sign-On - that responsability falls to the Relying Party.
+Sign-On - that responsibility falls to the Relying Party.
 
 If your Relying Party has a magic URL that needs to be called to end a
 session, you can configure LibreNMS to direct the user to it:
 
 ```php
-$config['post_logout_action'] = '/Shibboleth.sso/Logout';
+# Example for Shibboleth
+$config['auth_logout_handler'] = '/Shibboleth.sso/Logout';
+
+# Example for oauth2-proxy
+$config['auth_logout_handler'] = '/oauth2/sign_out';
 ```
 
-This option functions independantly of the Single Sign-on mechanism.
+This option functions independently of the Single Sign-on mechanism.
 
-## Complete Configuration
+### Complete Configuration
 
 This configuration works on my deployment with a Shibboleth relying
 party, injecting environment variables, with the IDP supplying a list

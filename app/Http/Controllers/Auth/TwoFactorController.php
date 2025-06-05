@@ -1,4 +1,5 @@
 <?php
+
 /**
  * TwoFactorController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -26,6 +27,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Interfaces\ToastInterface;
 use App\Models\User;
 use App\Models\UserPref;
 use Illuminate\Http\Request;
@@ -34,18 +36,17 @@ use LibreNMS\Authentication\TwoFactor;
 use LibreNMS\Config;
 use LibreNMS\Exceptions\AuthenticationException;
 use Session;
-use Toastr;
 
 class TwoFactorController extends Controller
 {
-    public function verifyTwoFactor(Request $request)
+    public function verifyTwoFactor(Request $request, ToastInterface $toast)
     {
         $this->validate($request, [
             'twofactor' => 'required|numeric',
         ]);
 
         try {
-            $this->checkToken($request->user(), $request->input('twofactor'));
+            $this->checkToken($request->user(), $request->input('twofactor'), $toast);
         } catch (AuthenticationException $e) {
             return redirect()->route('2fa.form')->withErrors($e->getMessage());
         }
@@ -55,7 +56,7 @@ class TwoFactorController extends Controller
             UserPref::forgetPref(auth()->user(), 'twofactor');
             $request->session()->forget(['twofactor', 'twofactorremove']);
 
-            \Toastr::info(__('TwoFactor auth removed.'));
+            $toast->info(__('TwoFactor auth removed.'));
 
             return redirect('preferences');
         }
@@ -67,10 +68,11 @@ class TwoFactorController extends Controller
 
     public function showTwoFactorForm(Request $request)
     {
-        $twoFactorSettings = $this->loadSettings($request->user());
+        $user = $request->user();
+        $twoFactorSettings = $this->loadSettings($user);
 
         // don't allow visiting this page if not needed
-        if (empty($twoFactorSettings) || !Config::get('twofactor') || session('twofactor')) {
+        if (empty($twoFactorSettings) || ! Config::get('twofactor') || session('twofactor')) {
             return redirect()->intended();
         }
 
@@ -80,29 +82,30 @@ class TwoFactorController extends Controller
         if (isset($twoFactorSettings['fails']) && $twoFactorSettings['fails'] >= 3) {
             $lockout_time = Config::get('twofactor_lock', 0);
 
-            if (!$lockout_time) {
+            if (! $lockout_time) {
                 $errors['lockout'] = __('Too many two-factor failures, please contact administrator.');
+                auth()->logout();
             } elseif ((time() - $twoFactorSettings['last']) < $lockout_time) {
-                $errors['lockout'] = __("Too many two-factor failures, please wait :time seconds", ['time' => $lockout_time]);
+                $errors['lockout'] = __('Too many two-factor failures, please wait :time seconds', ['time' => $lockout_time]);
             }
         }
 
         return view('auth.2fa')->with([
             'key' => $twoFactorSettings['key'],
-            'uri' => TwoFactor::generateUri($request->user()->username, $twoFactorSettings['key'], $twoFactorSettings['counter'] !== false),
+            'uri' => TwoFactor::generateUri($user->username, $twoFactorSettings['key'], $twoFactorSettings['counter'] !== false),
         ])->withErrors($errors);
     }
 
     /**
      * Show the form for creating a new resource.
      *
-     * @param Request $request
-     * @return \Illuminate\Http\Response
+     * @param  Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function create(Request $request)
     {
         $this->validate($request, [
-            'twofactor' => Rule::in('time', 'counter')
+            'twofactor' => Rule::in('time', 'counter'),
         ]);
 
         $key = TwoFactor::genKey();
@@ -123,8 +126,8 @@ class TwoFactorController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param Request $request
-     * @return \Illuminate\Http\Response
+     * @param  Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Request $request)
     {
@@ -137,8 +140,8 @@ class TwoFactorController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param Request $request
-     * @return \Illuminate\Http\Response
+     * @param  Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function cancelAdd(Request $request)
     {
@@ -148,15 +151,16 @@ class TwoFactorController extends Controller
     }
 
     /**
-     * @param User $user
-     * @param string $token
+     * @param  User  $user
+     * @param  int  $token
      * @return true
+     *
      * @throws AuthenticationException
      */
-    private function checkToken($user, $token)
+    private function checkToken($user, $token, ToastInterface $toast)
     {
-        if (!$token) {
-            throw new AuthenticationException(__("No Two-Factor Token entered."));
+        if (! $token) {
+            throw new AuthenticationException(__('No Two-Factor Token entered.'));
         }
 
         // check if this is new
@@ -174,7 +178,7 @@ class TwoFactorController extends Controller
             }
             $twoFactorSettings['last'] = time();
             UserPref::setPref($user, 'twofactor', $twoFactorSettings);
-            throw new AuthenticationException(__("Wrong Two-Factor Token."));
+            throw new AuthenticationException(__('Wrong Two-Factor Token.'));
         }
 
         // update counter
@@ -192,7 +196,7 @@ class TwoFactorController extends Controller
 
         // notify if added
         if (Session::has('twofactoradd')) {
-            Toastr::success(__('TwoFactor auth added.'));
+            $toast->success(__('TwoFactor auth added.'));
             Session::forget('twofactoradd');
         }
 
@@ -200,10 +204,9 @@ class TwoFactorController extends Controller
     }
 
     /**
-     * @param $user
      * @return mixed
      */
-    private function loadSettings($user)
+    private function loadSettings(User $user)
     {
         if (Session::has('twofactoradd')) {
             return Session::get('twofactoradd');

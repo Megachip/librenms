@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateRouteTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('route', function (Blueprint $table) {
             $table->unsignedInteger('device_id');
@@ -24,7 +23,7 @@ class CreateRouteTable extends Migration
             $table->string('ipRouteProto', 256);
             $table->unsignedInteger('discoveredAt');
             $table->string('ipRouteMask', 256);
-            $table->index(['device_id','context_name','ipRouteDest','ipRouteNextHop'], 'device');
+            $table->index(['device_id', 'context_name', 'ipRouteDest', 'ipRouteNextHop'], 'device');
         });
     }
 
@@ -33,8 +32,8 @@ class CreateRouteTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('route');
     }
-}
+};

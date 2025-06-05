@@ -3,22 +3,21 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateAuthlogTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('authlog', function (Blueprint $table) {
             $table->increments('id');
-            $table->timestamp('datetime')->default(DB::raw('CURRENT_TIMESTAMP'));
-            $table->text('user', 65535);
-            $table->text('address', 65535);
-            $table->text('result', 65535);
+            $table->timestamp('datetime')->useCurrent();
+            $table->text('user');
+            $table->text('address');
+            $table->text('result');
         });
     }
 
@@ -27,8 +26,8 @@ class CreateAuthlogTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('authlog');
     }
-}
+};

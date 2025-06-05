@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreatePortsStpTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ports_stp', function (Blueprint $table) {
             $table->increments('port_stp_id');
@@ -26,7 +25,7 @@ class CreatePortsStpTable extends Migration
             $table->string('designatedBridge', 32);
             $table->mediumInteger('designatedPort');
             $table->integer('forwardTransitions')->unsigned();
-            $table->unique(['device_id','port_id'], 'device_id');
+            $table->unique(['device_id', 'port_id']);
         });
     }
 
@@ -35,8 +34,8 @@ class CreatePortsStpTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ports_stp');
     }
-}
+};

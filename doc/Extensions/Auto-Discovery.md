@@ -1,6 +1,3 @@
-source: Extensions/Auto-Discovery.md
-path: blob/master/doc/
-
 # Auto Discovery Support
 
 ## Getting Started
@@ -15,26 +12,27 @@ default and within 5 minutes for new devices).
 Please note that you need at least ONE device added before
 auto-discovery will work.
 
-The first thing to do though is add the required configuration options to `config.php`.
+The first thing to do though is add the required configuration options.
 
 ## SNMP Details
 
 To add devices automatically we need to know your snmp details,
 examples of SNMP v1, v2c and v3 are below:
 
-```php
-// v1 or v2c
-$config['snmp']['community'][] = "my_custom_community";
-$config['snmp']['community'][] = "another_community";
+!!! setting "poller/snmp"
+    ```bash
+    lnms config:set snmp.community.+ my_custom_community
+    lnms config:set snmp.community.+ another_community
 
-// v3
-$config['snmp']['v3'][0]['authlevel'] = 'authPriv';
-$config['snmp']['v3'][0]['authname'] = 'my_username';
-$config['snmp']['v3'][0]['authpass'] = 'my_password';
-$config['snmp']['v3'][0]['authalgo'] = 'MD5';
-$config['snmp']['v3'][0]['cryptopass'] = 'my_crypto';
-$config['snmp']['v3'][0]['cryptoalgo'] = 'AES';
-```
+    lnms config:set snmp.v3.+ '{
+        "authlevel": "authPriv",
+        "authname": "my_username",
+        "authpass": "my_password",
+        "authalgo": "SHA",
+        "cryptopass": "my_crypto",
+        "cryptoalgo": "AES"
+    }'
+    ```
 
 These details will be attempted when adding devices, you can specify
 any mixture of these.
@@ -46,23 +44,25 @@ any mixture of these.
 To add devices, we need to know what are your subnets so we don't go
 blindly attempting to add devices not under your control.
 
-```php
-$config['nets'][] = '192.168.0.0/24';
-$config['nets'][] = '172.2.4.0/22';
-```
+!!! setting "discovery/networks"
+    ```bash
+    lnms config:set nets.+ '192.168.0.0/24'
+    lnms config:set nets.+ '172.2.4.0/22'
+    ```
 
-## Exclusions
+### Exclusions
 
 If you have added a network as above but a single device exists within
 it that you can't auto add, then you can exclude this with the following:
 
-```php
-$config['autodiscovery']['nets-exclude'][] = '192.168.0.1/32';
-```
+!!! setting "discovery/networks"
+    ```bash
+    lnms config:set autodiscovery.nets-exclude.+ '192.168.0.1/32'
+    ```
 
-# Additional Options
+## Additional Options
 
-## Discovering devices by IP
+### Discovering devices by IP
 
 By default we don't add devices by IP address, we look for a reverse
 dns name to be found and add with that. If this fails
@@ -73,21 +73,30 @@ need to set `$config['discovery_by_ip'] = true;`
 
 If your devices only return a short hostname such as lax-fa0-dc01 but
 the full name should be lax-fa0-dc01.example.com then you can
-set `$config['mydomain'] = 'example.com';`
+set
+
+!!! setting "discovery/general"
+    ```bash
+    lnms config:set mydomain example.com
+    ```
 
 ### Allow Duplicate sysName
 
 By default we require unique sysNames when adding devices (this is
 returned over snmp by your devices). If you would like to allow
 devices to be added with duplicate sysNames then please set
-`$config['allow_duplicate_sysName'] = true;`.
 
-# Discovery Methods
+!!! setting "discovery/discovery_modules"
+    ```bash
+    lnms config:set allow_duplicate_sysName true
+    ```
+
+## Discovery Methods
 
 Below are the methods for auto discovering devices.  Each one can be
 enabled or disabled and may have additional configuration options.
 
-## ARP
+### ARP
 
 Disabled by default.
 
@@ -96,67 +105,84 @@ module depends on the arp-table module being enabled and returning
 data.
 
 To enable, switch on globally the
-`$config['discovery_modules']['discovery-arp'] = true;` or per device
+`discovery_modules.discovery-arp` or per device
 within the Modules section.
 
-## XDP
+!!! setting "discovery/discovery_modules"
+    ```bash
+    lnms config:set discovery_modules.discovery-arp true
+    ```
 
-Enabled by default.
+### XDP
 
-`$config['autodiscovery']['xdp'] = false;` to disable.
+Enabled by default. Can be disabled with:
+
+!!! setting "discovery/autodiscovery"
+    ```bash
+    lnms config:set autodiscovery.xdp false
+    ```
 
 This includes FDP, CDP and LLDP support based on the device type.
 
 The LLDP/xDP links with neighbours will always be discovered as soon as the discovery module is enabled.
-However, LibreNMS will only try to add the new devices discovered with LLDP/xDP if `$config['autodiscovery']['xdp'] = true`; 
+However, LibreNMS will only try to add the new devices discovered with LLDP/xDP if `$config['autodiscovery']['xdp'] = true;`.
 
 Devices may be excluded from xdp discovery by sysName and sysDescr.
 
-```php
-//Exclude devices by name
-$config['autodiscovery']['xdp_exclude']['sysname_regexp'][] = '/host1/';
-$config['autodiscovery']['xdp_exclude']['sysname_regexp'][] = '/^dev/';
+!!! setting "discovery/autodiscovery"
+    ```bash
+    lnms config:set autodiscovery.xdp_exclude.sysname_regexp.+ '/host1/'
+    lnms config:set autodiscovery.xdp_exclude.sysname_regexp.+ '/^dev/'
+    
+    lnms config:set autodiscovery.xdp_exclude.sysdescr_regexp.+ '/-K9W8/'
+    lnms config:set autodiscovery.xdp_exclude.sysdescr_regexp.+ '/Vendor X/'
+    ```
 
-//Exclude devices by description
-$config['autodiscovery']['xdp_exclude']['sysdesc_regexp'][] = '/Vendor X/';
-$config['autodiscovery']['xdp_exclude']['sysdesc_regexp'][] = '/Vendor Y/';
-```
+Devices may be excluded from cdp discovery by platform. (CDP only)
 
-Devices may be excluded from cdp discovery by platform.
+!!! setting "discovery/autodiscovery"
+    ```bash
+    lnms config:set autodiscovery.cdp_exclude.platform_regexp.+ '/WS-C3750G/'
+    lnms config:set autodiscovery.cdp_exclude.platform_regexp.+ '/^Cisco IP Phone/'
+    ```
 
-```php
-//Exclude devices by platform(Cisco only)
-$config['autodiscovery']['cdp_exclude']['platform_regexp'][] = '/WS-C3750G/';
-```
-
-These devices are excluded by default:
-
-```php
-$config['autodiscovery']['xdp_exclude']['sysdesc_regexp'][] = '/-K9W8-/'; // Cisco Lightweight Access Point
-$config['autodiscovery']['cdp_exclude']['platform_regexp'][] = '/^Cisco IP Phone/'; //Cisco IP Phone
-```
-
-## OSPF
+### OSPF
 
 Enabled by default.
 
-`$config['autodiscovery']['ospf'] = false;` to disable.
+!!! setting "discovery/autodiscovery"
+    ```bash
+    lnms config:set autodiscovery.ospf false
+    ```
 
-## BGP
+### OSPFv3
 
 Enabled by default.
 
-`$config['autodiscovery']['bgp'] = false;` to disable.
+!!! setting "discovery/autodiscovery"
+    ```bash
+    lnms config:set autodiscovery.ospfv3 false
+    ```
+
+
+### BGP
+
+Enabled by default.
+
+!!! setting "discovery/autodiscovery"
+    ```bash
+    lnms config:set autodiscovery.bgp false
+    ```
 
 This module is invoked from bgp-peers discovery module.
 
-## SNMP Scan
+### SNMP Scan
 
 Apart from the aforementioned Auto-Discovery options, LibreNMS is also
 able to proactively scan a network for SNMP-enabled devices using the
 configured version/credentials.
 
-SNMP Scan will scan `$config['nets']` by default and respects `$config['autodiscovery']['nets-exclude']`.
+SNMP Scan will scan `nets` by default and respects `autodiscovery.nets-exclude`.
 
 To run the SNMP-Scanner you need to execute the `snmp-scan.py` from
 within your LibreNMS installation directory.
@@ -164,22 +190,43 @@ within your LibreNMS installation directory.
 Here the script's help-page for reference:
 
 ```text
-usage: snmp-scan.py [-h] [-r NETWORK] [-t THREADS] [-l] [-v]
+usage: snmp-scan.py [-h] [-t THREADS] [-g GROUP] [-l] [-v] [--ping-fallback] [--ping-only] [-P] [network ...]
 
 Scan network for snmp hosts and add them to LibreNMS.
 
-optional arguments:
-  -h, --help     show this help message and exit
-  -r NETWORK     CIDR noted IP-Range to scan. Can be specified multiple times
-                 This argument is only required if $config['nets'] is not set
-                 Example: 192.168.0.0/24 Example: 192.168.0.0/31 will be
-                 treated as an RFC3021 p-t-p network with two addresses,
-                 192.168.0.0 and 192.168.0.1 Example: 192.168.0.1/32 will be
-                 treated as a single host address
-  -t THREADS     How many IPs to scan at a time. More will increase the scan
-                 speed, but could overload your system. Default: 32
-  -l, --legend   Print the legend.
-  -v, --verbose  Show debug output. Specifying multiple times increases the
-                 verbosity.
+positional arguments:
+  network          CIDR noted IP-Range to scan. Can be specified multiple times
+                   This argument is only required if 'nets' config is not set
+                   Example: 192.168.0.0/24
+                   Example: 192.168.0.0/31 will be treated as an RFC3021 p-t-p network with two addresses, 192.168.0.0 and 192.168.0.1
+                   Example: 192.168.0.1/32 will be treated as a single host address
 
+optional arguments:
+  -h, --help       show this help message and exit
+  -t THREADS       How many IPs to scan at a time.  More will increase the scan speed, but could overload your system. Default: 32
+  -g GROUP         The poller group all scanned devices will be added to. Default: The first group listed in 'distributed_poller_group', or 0 if not specificed
+  -l, --legend     Print the legend.
+  -v, --verbose    Show debug output. Specifying multiple times increases the verbosity.
+  --ping-fallback  Add the device as an ICMP only device if it replies to ping but not SNMP.
+  --ping-only      Always add the device as an ICMP only device.
+  -P, --ping       Deprecated. Use --ping-fallback instead.
 ```
+
+### Discovered devices
+
+Newly discovered devices will be added to the `default_poller_group`, this value defaults to 0 if unset.
+
+When using distributed polling, this value can be changed locally by setting `default_poller_group`
+
+To set per-poller, set this in each poller's config.php file:
+```php
+$config['default_poller_group'] = 3;
+```
+
+Set globally
+
+!!! setting "poller/distributed"
+    ```bash
+    lnms config:set default_poller_group 3
+    ```
+

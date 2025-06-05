@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateProxmoxTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('proxmox', function (Blueprint $table) {
             $table->increments('id');
@@ -19,8 +18,8 @@ class CreateProxmoxTable extends Migration
             $table->integer('vmid');
             $table->string('cluster');
             $table->string('description')->nullable();
-            $table->timestamp('last_seen')->default(DB::raw('CURRENT_TIMESTAMP'));
-            $table->unique(['cluster','vmid'], 'cluster_vm');
+            $table->timestamp('last_seen')->useCurrent();
+            $table->unique(['cluster', 'vmid']);
         });
     }
 
@@ -29,8 +28,8 @@ class CreateProxmoxTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('proxmox');
     }
-}
+};

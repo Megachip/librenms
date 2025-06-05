@@ -1,4 +1,5 @@
 <?php
+
 /**
  * BasicApiTest.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -34,18 +35,19 @@ class BasicApiTest extends DBTestCase
 {
     use DatabaseTransactions;
 
-    public function testListDevices()
+    public function testListDevices(): void
     {
-        $user = factory(User::class)->state('admin')->create();
+        /** @var User $user */
+        $user = User::factory()->admin()->create();
         $token = ApiToken::generateToken($user);
-        $device = factory(Device::class)->create();
+        $device = Device::factory()->create();
 
         $this->json('GET', '/api/v0/devices', [], ['X-Auth-Token' => $token->token_hash])
             ->assertStatus(200)
             ->assertJson([
-                "status" => "ok",
-                "devices" => [$device->toArray()],
-                "count"=> 1
+                'status' => 'ok',
+                'devices' => [$device->toArray()],
+                'count' => 1,
             ]);
     }
 }

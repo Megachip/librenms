@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ServiceController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -29,27 +30,29 @@ use App\Models\Service;
 
 class ServiceController extends SelectController
 {
-
     /**
      * Defines the base query for this resource
      *
-     * @param \Illuminate\Http\Request $request
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder
      */
     protected function baseQuery($request)
     {
         return Service::hasAccess($request->user())
             ->with(['device' => function ($query) {
-                $query->select('device_id', 'hostname', 'sysName');
+                $query->select('device_id', 'hostname', 'sysName', 'display');
             }])
             ->select('service_id', 'service_type', 'service_desc', 'device_id');
     }
 
+    /**
+     * @param  Service  $service
+     */
     public function formatItem($service)
     {
         return [
             'id' => $service->service_id,
-            'text' => $service->device->shortDisplayName() . ' - ' . $service->service_type . ' (' . $service->service_desc . ')'
+            'text' => $service->device->shortDisplayName() . ' - ' . $service->service_type . ' (' . $service->service_desc . ')',
         ];
     }
 }

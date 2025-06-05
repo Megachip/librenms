@@ -1,4 +1,5 @@
 <?php
+
 /*
  * LibreNMS
  *
@@ -12,10 +13,9 @@
  */
 
 use LibreNMS\Config;
-use Illuminate\Support\Collection;
 
 $hops = [];
-$links =[];
+$links = [];
 
 $options = Config::get('network_map_vis_options');
 
@@ -27,24 +27,24 @@ $ar_list = dbFetchRows('SELECT * from `mpls_tunnel_ar_hops` where device_id = ? 
 d_echo($ar_list);
 
 // first node is host self
-$node = device_has_ip($ar_list[0]['mplsTunnelARHopRouterId']);
+$node = \App\Models\Device::findByIp($ar_list[0]['mplsTunnelARHopRouterId']);
 if ($node) {
-    $node_id = $node['device_id'];
-    $label = $node['hostname'];
+    $node_id = $node->device_id;
+    $label = $node->displayName();
     $first_node = $ar_list[0]['mplsTunnelARHopRouterId'];
 } else {
     $node_id = $label = $first_node;
 }
-    
+
 foreach ($ar_list as $value) {
-    $node = device_has_ip($value['mplsTunnelARHopRouterId']);
+    $node = \App\Models\Device::findByIp($value['mplsTunnelARHopRouterId']);
     if ($node) {
-        $remote_node_id = $node['device_id'];
-        $remote_label = $node['hostname'];
+        $remote_node_id = $node->device_id;
+        $remote_label = $node->displayName();
     } else {
         $remote_node_id = $remote_label = $value['mplsTunnelARHopRouterId'];
     }
-    
+
     $hops[$remote_node_id] = [
         'id' => $remote_node_id,
         'label' => $remote_label . PHP_EOL . $value['mplsTunnelARHopRouterId'],
@@ -74,15 +74,13 @@ foreach ($ar_list as $value) {
         'from' => $node_id,
         'to' => $remote_node_id,
         'label' => strval($value['mplsTunnelARHopIpv4Addr']),
-        'font' =>
-        [
+        'font' => [
             'align' => 'top',
             'color' => $link_color,
         ],
         'title' => $lsp . ' active hop #' . strval($value['mplsTunnelARHopIndex']) . ' Link Protected: ' . $value['localProtected'],
         'width' => 4.0,
-        'color' =>
-        [
+        'color' => [
             'color' => $link_color,
             'opacity' => '0.6',
         ],
@@ -100,7 +98,7 @@ $keyed = $dev_mpls_tunnel_c_hops->keyBy('mplsTunnelCHopListIndex'); // reduce to
 
 // Filter to only with final destination
 $filtered = $keyed->filter(function ($value) use ($last_node) {
-    return ($value['mplsTunnelCHopRouterId'] == $last_node);
+    return $value['mplsTunnelCHopRouterId'] == $last_node;
 });
 // FIXME pick the last one, but it seems that the secod one could work too. On NOKIA it actually does not matter, the paths have the same hops.
 // The first one is the active route path.
@@ -110,16 +108,16 @@ $filtered2 = $filtered->last()['mplsTunnelCHopListIndex'];
 $c_list = dbFetchRows('SELECT * from `mpls_tunnel_c_hops` where device_id = ? AND mplsTunnelCHopListIndex = ?', [$device_id, $filtered2]);
 
 // first node is host self
-$node = device_has_ip($c_list[0]['mplsTunnelCHopRouterId']);
+$node = \App\Models\Device::findByIp($c_list[0]['mplsTunnelCHopRouterId']);
 if ($node) {
-    $node_id = $node['device_id'];
-    $label = $node['hostname'];
+    $node_id = $node->device_id;
+    $label = $node->displayName();
 } else {
     $node_id = $label = $c_list[0]['mplsTunnelCHopRouterId'];
 }
 
 foreach ($c_list as $value) {
-    $node = device_has_ip($value['mplsTunnelCHopRouterId']);
+    $node = \App\Models\Device::findByIp($value['mplsTunnelCHopRouterId']);
     if ($node) {
         $remote_node_id = $node['device_id'];
         $remote_label = $node['hostname'];
@@ -135,20 +133,18 @@ foreach ($c_list as $value) {
             'title' => 'Node Protection Unknown',
         ];
     }
-    
+
     $links[] = [
         'from' => $node_id,
         'to' => $remote_node_id,
         'label' => strval($value['mplsTunnelCHopIpv4Addr']),
-        'font' =>
-        [
+        'font' => [
             'align' => 'bottom',
             'color' => '#262626',
         ],
         'title' => 'computed detour hop # ' . strval($value['mplsTunnelCHopIndex']),
         'width' => 4.0,
-        'color' =>
-        [
+        'color' => [
             'color' => '#262626',
             'opacity' => '0.5',
         ],
@@ -166,23 +162,24 @@ $edges = json_encode($links);
 if (count($hops) > 1 && count($links) > 0) {
     $visualization = 'visualization-' . $i;
     echo '<div id="visualization-' . $i . '"></div>
-        <script src="js/vis.min.js"></script>
+        <script src="js/vis-network.min.js"></script>
+        <script src="js/vis-data.min.js"></script>
         <script type="text/javascript">
         var height = $(window).height() / 2;
         ';
     echo "$('#" . $visualization . "').height(height + 'px');
-        var nodes = " . $nodes . ";
-        var edges = " . $edges . ";
-        ";
+        var nodes = " . $nodes . ';
+        var edges = ' . $edges . ';
+        ';
     echo "var container = document.getElementById('" . $visualization . "');
         ";
-    echo "var data = {
+    echo 'var data = {
             nodes: nodes,
             edges: edges,
             stabilize: true
         };
-        var options =  " . $options . ";
-        ";
+        var options =  ' . $options . ';
+        ';
     echo "var network = new vis.Network(container, data, options);
         network.on('click', function (properties) {
             if (properties.nodes > 0) {
@@ -191,5 +188,5 @@ if (count($hops) > 1 && count($links) > 0) {
         });
         </script>';
 } else {
-    print_message("No Path map to display. Maybe there are no MPLS tunnel hops discovered.");
+    print_message('No Path map to display. Maybe there are no MPLS tunnel hops discovered.');
 }

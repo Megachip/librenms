@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DeviceGroupController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -29,6 +30,13 @@ use App\Models\DeviceGroup;
 
 class DeviceGroupController extends SelectController
 {
+    protected function rules()
+    {
+        return [
+            'type' => 'nullable|in:static,dynamic',
+        ];
+    }
+
     protected function searchFields($request)
     {
         return ['name'];
@@ -36,9 +44,14 @@ class DeviceGroupController extends SelectController
 
     protected function baseQuery($request)
     {
-        return DeviceGroup::hasAccess($request->user())->select('id', 'name');
+        return DeviceGroup::hasAccess($request->user())
+            ->when($request->get('type'), fn ($query, $type) => $query->where('type', $type))
+            ->select(['id', 'name']);
     }
 
+    /**
+     * @param  DeviceGroup  $device_group
+     */
     public function formatItem($device_group)
     {
         return [

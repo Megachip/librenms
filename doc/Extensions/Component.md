@@ -1,6 +1,3 @@
-source: Extensions/Component.md
-path: blob/master/doc/
-
 # About
 
 The Component extension provides a generic database storage mechanism
@@ -11,7 +8,7 @@ discovery/poller modules.
 It provides a status (Nagios convention), the ability to Disable (do
 not poll), or Ignore (do not Alert).
 
-# Database Structure
+## Database Structure
 
 The database structure contains the component table:
 
@@ -48,7 +45,7 @@ mysql> select * from component_prefs limit 1;
 2 rows in set (0.00 sec)
 ```
 
-## Reserved Fields
+### <a name="reserved">Reserved Fields</a>
 
 When this data from both the `component` and `component_prefs` tables
 is returned in one single consolidated array, there is the potential
@@ -58,7 +55,7 @@ fields of the `component` table are reserved, they cannot be used as
 custom attributes, if you update these the module will attempt to
 write them to the `component` table, not the `component_prefs` table.
 
-# Using Components
+## Using Components
 
 Create an instance of the component class:
 
@@ -66,7 +63,7 @@ Create an instance of the component class:
 $COMPONENT = new LibreNMS\Component();
 ```
 
-## Retrieving Components
+### <a name="get">Retrieving Components</a>
 
 Now you can retrieve an array of the available components:
 
@@ -209,7 +206,7 @@ This will return `True` on success or `False` on failure.
 To edit a component, the procedure is:
 
 1. [Get the Current Components](#get)
-1. [Edit the array](#update-edit)
+1. [Edit the array](#edit-the-array)
 1. [Write the components](#update-write)
 
 ### Edit the Array
@@ -243,7 +240,7 @@ If you need to edit a previously set Attribute/Value pair you can:
 $ARRAY[COMPONENT_ID]['Existing Attribute'] = "New Value";
 ```
 
-### Write the components
+### <a name="update-write">Write the components </a> 
 
 To write component changes back to the database simply:
 
@@ -265,7 +262,7 @@ of, these are:
 ## API
 
 Component details are available via the API.
-Please see the [API-Docs](/API/#function-get_components) for details.
+Please see the [API-Docs](../API/Devices.md#get_components) for details.
 
 ## Alerting
 
@@ -313,10 +310,6 @@ The data that is written to each alert when it is raised is in the following for
 To see an example of how the component module can used, please see the
 following modules:
 
-- Cisco CBQoS
-  - `includes/discovery/cisco-cbqos.inc.php`
-  - `includes/polling/cisco-cbqos.inc.php`
-  - `html/includes/graphs/device/cbqos_traffic.inc.php`
 - Cisco OTV
   - `includes/discovery/cisco-otv.inc.php`
   - `includes/polling/cisco-otv.inc.php`

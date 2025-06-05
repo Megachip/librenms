@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2015 James Campbell <neokjames@gmail.com>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /* Copyright (C) 2015 Daniel Preussker <f0o@devilcode.org>
  * This program is free software: you can redistribute it and/or modify
@@ -25,104 +26,99 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * Pushover API Transport
+ *
  * @author neokjames <neokjames@gmail.com>
  * @copyright 2015 neokjames, f0o, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Enum\AlertState;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Pushover extends Transport
 {
-    public function deliverAlert($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
-        $pushover_opts = $this->config;
-        $pushover_opts['options'] = $this->parseUserOptions($this->config['options']);
+        $options = $this->parseUserOptions($this->config['options']);
 
-        return $this->contactPushover($obj, $pushover_opts);
-    }
-
-    public function contactPushover($obj, $api)
-    {
-        $data          = array();
-        $data['token'] = $api['appkey'];
-        $data['user']  = $api['userkey'];
-        switch ($obj['severity']) {
-            case "critical":
+        $url = 'https://api.pushover.net/1/messages.json';
+        $data = [];
+        $data['token'] = $this->config['appkey'];
+        $data['user'] = $this->config['userkey'];
+        // Entities are html encoded so this will cause them to be displayed correctly in pushover alerts
+        $data['html'] = '1';
+        switch ($alert_data['severity']) {
+            case 'critical':
                 $data['priority'] = 1;
-                if (!empty($api['options']['sound_critical'])) {
-                    $data['sound'] = $api['options']['sound_critical'];
+                if (! empty($options['sound_critical'])) {
+                    $data['sound'] = $options['sound_critical'];
                 }
                 break;
-            case "warning":
+            case 'warning':
                 $data['priority'] = 1;
-                if (!empty($api['options']['sound_warning'])) {
-                    $data['sound'] = $api['options']['sound_warning'];
+                if (! empty($options['sound_warning'])) {
+                    $data['sound'] = $options['sound_warning'];
                 }
                 break;
         }
-        switch ($obj['state']) {
-            case 0:
+        switch ($alert_data['state']) {
+            case AlertState::RECOVERED:
                 $data['priority'] = 0;
-                if (!empty($api['options']['sound_ok'])) {
-                    $data['sound'] = $api['options']['sound_ok'];
+                if (! empty($options['sound_ok'])) {
+                    $data['sound'] = $options['sound_ok'];
                 }
                 break;
         }
-        $data['title']   = $obj['title'];
-        $data['message'] = $obj['msg'];
-        if ($api['options']) {
-            $data = array_merge($data, $api['options']);
+        $data['title'] = $alert_data['title'];
+        $data['message'] = $alert_data['msg'];
+        if ($options) {
+            $data = array_merge($data, $options);
         }
-        $curl            = curl_init();
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_URL, 'https://api.pushover.net/1/messages.json');
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_SAFE_UPLOAD, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
-        $ret  = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            var_dump("Pushover returned error"); //FIXME: proper debugging
-            return 'HTTP Status code ' . $code;
+
+        $res = Http::client()->asForm()->post($url, $data);
+
+        if ($res->successful()) {
+            return true;
         }
-        return true;
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $data['message'], $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
                 [
                     'title' => 'Api Key',
-                    'name'  => 'appkey',
+                    'name' => 'appkey',
                     'descr' => 'Api Key',
-                    'type'  => 'text',
+                    'type' => 'password',
                 ],
                 [
                     'title' => 'User Key',
-                    'name'  => 'userkey',
+                    'name' => 'userkey',
                     'descr' => 'User Key',
-                    'type'  => 'text',
+                    'type' => 'password',
                 ],
                 [
                     'title' => 'Pushover Options',
-                    'name'  => 'options',
+                    'name' => 'options',
                     'descr' => 'Pushover options',
-                    'type'  => 'textarea',
+                    'type' => 'textarea',
                 ],
             ],
             'validation' => [
                 'appkey' => 'required',
                 'userkey' => 'required',
-            ]
+            ],
         ];
     }
 }

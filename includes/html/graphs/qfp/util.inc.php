@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -6,20 +7,18 @@
  * option) any later version.  Please see LICENSE.txt at the top level of
  * the source code distribution for details.
  *
- * @package    LibreNMS
- * @subpackage webui
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 LibreNMS
  * @author     Pavle Obradovic <pobradovic08@gmail.com>
  */
-
 $scale_min = '0';
 $scale_max = '100';
 
 $ds = 'ProcessingLoad';
 
-$colour_line   = 'cc0000';
-$colour_area   = 'FFBBBB';
+$colour_line = 'cc0000';
+$colour_area = 'FFBBBB';
 $colour_minmax = 'c5c5c5';
 
 $graph_max = 1;

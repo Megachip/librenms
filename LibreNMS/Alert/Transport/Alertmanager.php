@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2019 LibreNMS
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,97 +12,110 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * Alertmanager Transport
+ *
  * @copyright 2019 LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
-use LibreNMS\Config;
+use LibreNMS\Enum\AlertState;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
+use LibreNMS\Util\Url;
 
 class Alertmanager extends Transport
 {
-    public function deliverAlert($obj, $opts)
-    {
-        $alertmanager_opts = $this->parseUserOptions($this->config['alertmanager-options']);
-        $alertmanager_opts['url'] = $this->config['alertmanager-url'];
+    protected string $name = 'Alert Manager';
 
-        return $this->contactAlertmanager($obj, $alertmanager_opts);
-    }
-
-    public static function contactAlertmanager($obj, $api)
+    public function deliverAlert(array $alert_data): bool
     {
-        if ($obj['state'] == 0) {
-            $alertmanager_status = 'endsAt';
-        } else {
-            $alertmanager_status = 'startsAt';
-        }
-        $gen_url          = (Config::get('base_url') . 'device/device=' . $obj['device_id']);
-        $host             = ($api['url'] . '/api/v2/alerts');
-        $curl             = curl_init();
-        $alertmanager_msg = strip_tags($obj['msg']);
-        $data             = [[
-            $alertmanager_status => date("c"),
-            'generatorURL' => $gen_url,
+        $url = $this->config['alertmanager-url'];
+        $username = $this->config['alertmanager-username'];
+        $password = $this->config['alertmanager-password'];
+
+        $alertmanager_status = $alert_data['state'] == AlertState::RECOVERED ? 'endsAt' : 'startsAt';
+        $alertmanager_msg = strip_tags($alert_data['msg']);
+        $data = [[
+            $alertmanager_status => date('c'),
+            'generatorURL' => Url::deviceUrl($alert_data['device_id']),
             'annotations' => [
-                'summary' => $obj['name'],
-                'title' => $obj['title'],
+                'summary' => $alert_data['name'],
+                'title' => $alert_data['title'],
                 'description' => $alertmanager_msg,
             ],
             'labels' => [
-                    'alertname' => $obj['name'],
-                    'severity' => $obj['severity'],
-                    'instance' => $obj['hostname'],
-                ],
+                'alertname' => $alert_data['name'],
+                'severity' => $alert_data['severity'],
+                'instance' => $alert_data['hostname'],
+            ],
         ]];
 
-        unset($api['url']);
-        foreach ($api as $label => $value) {
-            $data[0]['labels'][$label] = $value;
-        };
-
-        $alert_message = json_encode($data);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_URL, $host);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $alert_message);
-
-        $ret  = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            return 'HTTP Status code ' . $code;
+        $alertmanager_opts = $this->parseUserOptions($this->config['alertmanager-options']);
+        foreach ($alertmanager_opts as $label => $value) {
+            // To allow dynamic values
+            if (preg_match('/^extra_[A-Za-z0-9_]+$/', $label) && ! empty($alert_data['faults'][1][$value])) {
+                $data[0]['labels'][$label] = strip_tags($alert_data['faults'][1][$value]);
+            } else {
+                $data[0]['labels'][$label] = strip_tags($value);
+            }
         }
-        return true;
+
+        $client = Http::client()->timeout(5);
+
+        if ($username != '' && $password != '') {
+            $client->withBasicAuth($username, $password);
+        }
+
+        foreach (explode(',', $url) as $am) {
+            $post_url = ($am . '/api/v2/alerts');
+            $res = $client->post($post_url, $data);
+
+            if ($res->successful()) {
+                return true;
+            }
+        }
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $alertmanager_msg, $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
                 [
-                    'title' => 'Alertmanager URL',
+                    'title' => 'Alertmanager URL(s)',
                     'name' => 'alertmanager-url',
-                    'descr' => 'Alertmanager Webhook URL',
+                    'descr' => 'Alertmanager Webhook URL(s). Can contain comma-separated URLs',
                     'type' => 'text',
+                ],
+                [
+                    'title' => 'Alertmanager Username',
+                    'name' => 'alertmanager-username',
+                    'descr' => 'Alertmanager Basic Username to authenticate to Alertmanager',
+                    'type' => 'text',
+                ],
+                [
+                    'title' => 'Alertmanager Password',
+                    'name' => 'alertmanager-password',
+                    'descr' => 'Alertmanager Basic Password to authenticate to Alertmanager',
+                    'type' => 'password',
                 ],
                 [
                     'title' => 'Alertmanager Options',
                     'name' => 'alertmanager-options',
-                    'descr' => 'Alertmanager Options',
+                    'descr' => 'Alertmanager Options. You can add any fixed string value or dynamic value from alert details (label name must start with extra_ and value must exists in alert details).',
                     'type' => 'textarea',
-                ]
+                ],
             ],
             'validation' => [
-                'alertmanager-url' => 'required|url',
-            ]
+                'alertmanager-url' => 'required|string',
+            ],
         ];
     }
 }

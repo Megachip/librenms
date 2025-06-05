@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use LibreNMS\Interfaces\Models\Keyable;
 
-class MplsService extends Model implements Keyable
+class MplsService extends DeviceRelatedModel implements Keyable
 {
     protected $primaryKey = 'svc_id';
     public $timestamps = false;
@@ -35,7 +35,8 @@ class MplsService extends Model implements Keyable
 
     /**
      * Get a string that can identify a unique instance of this model
-     * @return string
+     *
+     * @return int
      */
     public function getCompositeKey()
     {
@@ -43,9 +44,11 @@ class MplsService extends Model implements Keyable
     }
 
     // ---- Define Relationships ----
-
-    public function binds()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\MplsSdpBind, $this>
+     */
+    public function binds(): HasMany
     {
-        return $this->hasMany('App\Models\MplsSdpBind', 'svc_id');
+        return $this->hasMany(MplsSdpBind::class, 'svc_id');
     }
 }

@@ -1,6 +1,3 @@
-source: Extensions/Fast-Ping-Check.md
-path: blob/master/doc/
-
 # Fast up/down checking
 
 Normally, LibreNMS sends an ICMP ping to the device before polling to
@@ -20,25 +17,33 @@ Collection](../Alerting/Rules.md#alert-rules-collection).
 
 ## Setting the ping check to 1 minute
 
-1: Change the ping_rrd_step setting in config.php
+1: If you are using [RRDCached](../Extensions/RRDCached.md), stop the service.
 
-```
-$config['ping_rrd_step'] = 60;
-```
+    - This will flush all pending writes so that the rrdstep.php script can change the steps.
 
-2: Update the rrd files to change the step (step is hardcoded at file
+2: Change the ping_rrd_step setting in config.php
+
+!!! setting "poller/rrdtool"
+    ```bash
+    lnms config:set ping_rrd_step 60
+    ```
+
+3: Update the rrd files to change the step (step is hardcoded at file
 creation in rrd files)
 
 ```
 ./scripts/rrdstep.php -h all
 ```
 
-3: Add the following line to /etc/cron.d/librenms to allow 1 minute
+4: Add the following line to /etc/cron.d/librenms to allow 1 minute
 ping checks
 
 ```
 *    *    * * *   librenms    /opt/librenms/ping.php >> /dev/null 2>&1
 ```
+
+5: If applicable: Start the [RRDCached](../Extensions/RRDCached.md) service
+
 
 **NOTE**: If you are using distributed pollers you can restrict a
 poller to a group by appending `-g` to the cron entry.  Alternatively,
@@ -46,17 +51,18 @@ you should only run ping.php on a single node.
 
 ## Sub minute ping check
 
-Cron only has a resolution of one minute, so we have to use a trick to
-allow sub minute checks. We add two entries, but add a delay before one.
+Cron only has a resolution of one minute, so for sub-minute ping checks we need to adapt both `ping`
+and `alerts` entries. We add two entries per function, but add a delay before one of these entries.
 
-Alerts are only run every minute, so you will have to modify them as
-well. Remove the original alerts.php entry.
+Remember, you need to remove the original `ping.php` and `alerts.php` entries in crontab before
+proceeding!
 
 1: Set ping_rrd_step
 
-```
-$config['ping_rrd_step'] = 30;
-```
+!!! setting "poller/rrdtool"
+    ```bash
+    lnms config:set ping_rrd_step 30
+    ```
 
 2: Update the rrd files
 
@@ -73,22 +79,23 @@ $config['ping_rrd_step'] = 30;
 *    *    * * *   librenms    sleep 45 && /opt/librenms/alerts.php >> /dev/null 2>&1
 ```
 
-# Device dependencies
+## Device dependencies
 
 The ping.php script respects device dependencies, but the main poller
 does not (for technical reasons). However, using this script does not
 disable the icmp check in the poller and a child may be reported as
 down before the parent.
 
-# Settings
+## Settings
 
-ping.php uses much the same settings as the poller fping with one
+`ping.php` uses much the same settings as the poller fping with one
 exception: retries is used instead of count.
-ping.php does not measure loss and avg response time, only up/down, so
+`ping.php` does not measure loss and avg response time, only up/down, so
 once a device responds it stops pinging it.
 
-```
-$config['fping_options']['retries'] = 2;
-$config['fping_options']['timeout'] = 500;
-$config['fping_options']['interval'] = 500;
-```
+!!! setting "poller/ping"
+    ```bash
+    lnms config:set fping_options.retries 2
+    lnms config:set fping_options.timeout 500
+    lnms config:set fping_options.interval 500
+    ```

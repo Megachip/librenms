@@ -1,7 +1,5 @@
 <?php
 
-$class      = 'dbm';
-$unit       = 'dBm';
-$graph_type = 'sensor_dbm';
+$class = 'dbm';
 
 require 'sensors.inc.php';

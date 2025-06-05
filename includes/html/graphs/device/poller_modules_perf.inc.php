@@ -1,4 +1,7 @@
 <?php
+
+use LibreNMS\Config;
+
 /*
  * LibreNMS per-module poller performance
  *
@@ -13,30 +16,33 @@
  */
 
 $scale_min = '0';
-$attribs = get_dev_attribs($device['device_id']);
-$modules = \LibreNMS\Config::get('poller_modules');
+
+// Workaround to load the Object from the SQL query array.
+// TODO Convert the initial SQL query to Eloquent
+$device = DeviceCache::get($device['device_id']);
+
+$attribs = $device->getAttribs();
+$modules = Config::get('poller_modules');
 ksort($modules);
 
 require 'includes/html/graphs/common.inc.php';
 
-$count = 0;
 foreach ($modules as $module => $module_status) {
-    $rrd_filename = rrd_name($device['hostname'], array('poller-perf', $module));
-    if ($attribs['poll_'.$module] || ($module_status && !isset($attribs['poll_'.$module])) ||
-        (\LibreNMS\Config::getOsSetting($device['os'], 'poller_modules.' . $module) && !isset($attribs['poll_' . $module]))) {
-        if (rrdtool_check_rrd_exists($rrd_filename)) {
-            $ds['ds']       = 'poller';
-            $ds['descr']    = $module;
+    $rrd_filename = Rrd::name($device->hostname, ['poller-perf', $module]);
+    if ($attribs['poll_' . $module] || ($module_status && ! isset($attribs['poll_' . $module])) ||
+        (Config::getOsSetting($device->os, 'poller_modules.' . $module) && ! isset($attribs['poll_' . $module]))) {
+        if (Rrd::checkRrdExists($rrd_filename)) {
+            $ds['ds'] = 'poller';
+            $ds['descr'] = $module;
             $ds['filename'] = $rrd_filename;
-            $rrd_list[]     = $ds;
-            $count++;
+            $rrd_list[] = $ds;
         }
     }
 }
 
-$unit_text = "Seconds";
+$unit_text = 'Seconds';
 $simple_rrd = false;
-$nototal = false;
+$nototal = true;
 $text_orig = true;
 $colours = 'manycolours';
-require "includes/html/graphs/generic_multi_simplex_seperated.inc.php";
+require 'includes/html/graphs/generic_multi_simplex_seperated.inc.php';

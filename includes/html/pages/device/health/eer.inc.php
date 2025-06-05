@@ -1,7 +1,5 @@
 <?php
 
-$class      = 'eer';
-$unit       = '';
-$graph_type = 'sensor_eer';
+$class = 'eer';
 
 require 'sensors.inc.php';

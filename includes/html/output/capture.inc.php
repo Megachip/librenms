@@ -1,4 +1,5 @@
 <?php
+
 /**
  * output.php
  *
@@ -15,17 +16,16 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2016 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
-
-if (!Auth::user()->hasGlobalAdmin()) {
-    echo("Insufficient Privileges");
-    exit();
+if (! Auth::user()->hasGlobalAdmin()) {
+    echo 'Insufficient Privileges';
+    exit;
 }
 
 $hostname = escapeshellcmd($_REQUEST['hostname']);
@@ -33,7 +33,7 @@ $type = $_REQUEST['type'];
 
 switch ($type) {
     case 'poller':
-        $cmd = ['php', \LibreNMS\Config::get('install_dir') . '/poller.php', '-h', $hostname, '-r', '-f', '-d'];
+        $cmd = ['php', \LibreNMS\Config::get('install_dir') . '/lnms', 'device:poll', $hostname, '--no-data', '-vv'];
         $filename = "poller-$hostname.txt";
         break;
     case 'snmpwalk':
@@ -57,7 +57,7 @@ $proc = new \Symfony\Component\Process\Process($cmd);
 $proc->setTimeout(Config::get('snmp.exec_timeout', 1200));
 
 if ($_GET['format'] == 'text') {
-    header("Content-type: text/plain");
+    header('Content-type: text/plain');
     header('X-Accel-Buffering: no');
 
     $proc->run(function ($type, $buffer) {

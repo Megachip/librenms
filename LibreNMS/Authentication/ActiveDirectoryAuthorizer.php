@@ -3,9 +3,12 @@
 // easier to rewrite for Active Directory than to bash it into existing LDAP implementation
 
 // disable certificate checking before connect if required
+
 namespace LibreNMS\Authentication;
 
+use LDAP\Connection;
 use LibreNMS\Config;
+use LibreNMS\Enum\LegacyAuthLevel;
 use LibreNMS\Exceptions\AuthenticationException;
 use LibreNMS\Exceptions\LdapMissingException;
 
@@ -13,9 +16,9 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
 {
     use ActiveDirectoryCommon;
 
-    protected static $CAN_UPDATE_PASSWORDS = 0;
+    protected static $CAN_UPDATE_PASSWORDS = false;
 
-    protected $ldap_connection;
+    protected ?Connection $ldap_connection = null;
     protected $is_bound = false; // this variable tracks if bind has been called so we don't call it multiple times
 
     public function authenticate($credentials)
@@ -24,12 +27,12 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
 
         if ($this->ldap_connection) {
             // bind with sAMAccountName instead of full LDAP DN
-            if (!empty($credentials['username']) && !empty($credentials['password']) && ldap_bind($this->ldap_connection, $credentials['username'] . '@' . Config::get('auth_ad_domain'), $credentials['password'])) {
+            if (! empty($credentials['username']) && ! empty($credentials['password']) && ldap_bind($this->ldap_connection, $credentials['username'] . '@' . Config::get('auth_ad_domain'), $credentials['password'])) {
                 $this->is_bound = true;
                 // group membership in one of the configured groups is required
                 if (Config::get('auth_ad_require_groupmembership', true)) {
                     // cycle through defined groups, test for memberOf-ship
-                    foreach (Config::get('auth_ad_groups', array()) as $group => $level) {
+                    foreach (Config::get('auth_ad_groups', []) as $group => $level) {
                         if ($this->userInGroup($credentials['username'], $group)) {
                             return true;
                         }
@@ -52,7 +55,7 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
             throw new AuthenticationException('A password is required');
         } elseif (Config::get('auth_ad_debug', false)) {
             ldap_get_option($this->ldap_connection, LDAP_OPT_DIAGNOSTIC_MESSAGE, $extended_error);
-            throw new AuthenticationException(ldap_error($this->ldap_connection).'<br />'.$extended_error);
+            throw new AuthenticationException(ldap_error($this->ldap_connection) . '<br />' . $extended_error);
         }
 
         throw new AuthenticationException(ldap_error($this->ldap_connection));
@@ -70,18 +73,17 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
             $connection,
             Config::get('auth_ad_base_dn'),
             $search_filter,
-            array("cn")
+            ['cn']
         );
         $result = ldap_get_entries($connection, $search);
 
         if ($result == false || $result['count'] !== 1) {
             if (Config::get('auth_ad_debug', false)) {
                 if ($result == false) {
-                    // FIXME: what went wrong?
-                    throw new AuthenticationException("LDAP query failed for group '$groupname' using filter '$search_filter'");
-                } elseif ($result['count'] == 0) {
+                    throw new AuthenticationException("LDAP query failed for group '$groupname' using filter '$search_filter', last LDAP error: " . ldap_error($connection));
+                } elseif ((int) $result['count'] == 0) {
                     throw new AuthenticationException("Failed to find group matching '$groupname' using filter '$search_filter'");
-                } elseif ($result['count'] > 1) {
+                } elseif ((int) $result['count'] > 1) {
                     throw new AuthenticationException("Multiple groups returned for '$groupname' using filter '$search_filter'");
                 }
             }
@@ -89,19 +91,20 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
             throw new AuthenticationException();
         }
 
-        $group_dn = $result[0]["dn"];
+        // special character handling
+        $group_dn = addcslashes($result[0]['dn'], '()#');
 
         $search = ldap_search(
             $connection,
             Config::get('auth_ad_base_dn'),
             // add 'LDAP_MATCHING_RULE_IN_CHAIN to the user filter to search for $username in nested $group_dn
             // limiting to "DN" for shorter array
-            "(&" . $this->userFilter($username) . "(memberOf:1.2.840.113556.1.4.1941:=$group_dn))",
-            array("DN")
+            '(&' . $this->userFilter($username) . "(memberOf:1.2.840.113556.1.4.1941:=$group_dn))",
+            ['DN']
         );
         $entries = ldap_get_entries($connection, $search);
 
-        return ($entries["count"] > 0);
+        return (int) $entries['count'] > 0;
     }
 
     public function userExists($username, $throw_exception = false)
@@ -112,62 +115,68 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
             $connection,
             Config::get('auth_ad_base_dn'),
             $this->userFilter($username),
-            array('samaccountname')
+            ['samaccountname']
         );
         $entries = ldap_get_entries($connection, $search);
 
-
         if ($entries['count']) {
-            return 1;
+            return true;
         }
 
-        return 0;
+        return false;
     }
 
-
-    public function getUserlevel($username)
+    public function getRoles(string $username): array|false
     {
-        $userlevel = 0;
-        if (!Config::get('auth_ad_require_groupmembership', true)) {
+        $roles = [];
+        if (! Config::get('auth_ad_require_groupmembership', true)) {
             if (Config::get('auth_ad_global_read', false)) {
-                $userlevel = 5;
+                $roles[] = 'global-read';
             }
         }
 
         // cycle through defined groups, test for memberOf-ship
-        foreach (Config::get('auth_ad_groups', array()) as $group => $level) {
+        foreach (Config::get('auth_ad_groups', []) as $group => $data) {
             try {
                 if ($this->userInGroup($username, $group)) {
-                    $userlevel = max($userlevel, $level['level']);
+                    if (isset($data['roles']) && is_array($data['roles'])) {
+                        $roles = array_merge($roles, $data['roles']);
+                    } elseif (isset($data['level'])) {
+                        $role = LegacyAuthLevel::tryFrom($data['level'])?->getName();
+                        if ($role) {
+                            $roles[] = $role;
+                        }
+                    }
                 }
             } catch (AuthenticationException $e) {
             }
         }
 
-        return $userlevel;
+        return array_unique($roles);
     }
-
 
     public function getUserid($username)
     {
         $connection = $this->getConnection();
 
-        $attributes = array('objectsid');
+        $attributes = ['objectsid'];
         $search = ldap_search(
             $connection,
             Config::get('auth_ad_base_dn'),
             $this->userFilter($username),
             $attributes
         );
-        $entries = ldap_get_entries($connection, $search);
 
-        if ($entries['count']) {
-            return $this->getUseridFromSid($this->sidFromLdap($entries[0]['objectsid'][0]));
+        if ($search !== false) {
+            $entries = ldap_get_entries($connection, $search);
+
+            if ($entries !== false && $entries['count']) {
+                return $this->getUseridFromSid($this->sidFromLdap($entries[0]['objectsid'][0]));
+            }
         }
 
         return -1;
     }
-
 
     /**
      * Bind to AD with the bind user if available, otherwise anonymous bind
@@ -189,29 +198,40 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
             return;
         }
 
-        if (!function_exists('ldap_connect')) {
+        if (! function_exists('ldap_connect')) {
             throw new LdapMissingException();
         }
 
         if (Config::has('auth_ad_check_certificates') &&
-            !Config::get('auth_ad_check_certificates')) {
+            ! Config::get('auth_ad_check_certificates')) {
             putenv('LDAPTLS_REQCERT=never');
-        };
+        }
 
         if (Config::has('auth_ad_check_certificates') && Config::get('auth_ad_debug')) {
             ldap_set_option(null, LDAP_OPT_DEBUG_LEVEL, 7);
         }
 
-        $this->ldap_connection = @ldap_connect(Config::get('auth_ad_url'));
+        $this->ldap_connection = ldap_connect(Config::get('auth_ad_url'));
+        if (empty($this->ldap_connection)) {
+            throw new AuthenticationException('Fatal error while connecting to AD, uri not valid: ' . Config::get('auth_ad_url'));
+        }
 
         // disable referrals and force ldap version to 3
         ldap_set_option($this->ldap_connection, LDAP_OPT_REFERRALS, 0);
         ldap_set_option($this->ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
+
+        $starttls = Config::get('auth_ad_starttls');
+        if ($starttls == 'optional' || $starttls == 'required') {
+            $tls = ldap_start_tls($this->ldap_connection);
+            if ($starttls == 'required' && $tls === false) {
+                throw new AuthenticationException('Fatal error: LDAP TLS required but not successfully negotiated:' . ldap_error($this->ldap_connection));
+            }
+        }
     }
 
     public function bind($credentials = [])
     {
-        if (!$this->ldap_connection) {
+        if (! $this->ldap_connection) {
             $this->connect();
         }
 
@@ -229,7 +249,7 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
         ldap_set_option($this->ldap_connection, LDAP_OPT_NETWORK_TIMEOUT, -1); // restore timeout
 
         if ($bind_result) {
-            return;
+            return $bind_result;
         }
 
         ldap_set_option($this->ldap_connection, LDAP_OPT_NETWORK_TIMEOUT, Config::get('auth_ad_timeout', 5));
@@ -237,9 +257,10 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
         ldap_set_option($this->ldap_connection, LDAP_OPT_NETWORK_TIMEOUT, -1); // restore timeout
     }
 
-    protected function getConnection()
+    protected function getConnection(): ?Connection
     {
         $this->init(); // make sure connected and bound
+
         return $this->ldap_connection;
     }
 }

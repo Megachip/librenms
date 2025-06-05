@@ -6,7 +6,11 @@ var ajax = new Array();
 function getInterfaceList(sel)
 {
         var deviceId = sel.options[sel.selectedIndex].value;
-        document.getElementById('port_id').options.length = 0;     // Empty city select box
+        // Empty city select box
+        var el = document.getElementById('port_id');
+        if (el !== null) {
+            el.options.length = 0;
+        }
         if (deviceId.length>0) {
                 var index = ajax.length;
                 ajax[index] = new sack();
@@ -17,10 +21,21 @@ function getInterfaceList(sel)
         }
 }
 
-function createInterfaces(index)
-{
-        var obj = document.getElementById('port_id');
-        eval(ajax[index].response);     // Executing the response from Ajax as Javascript code
-}
+function createInterfaces(index) {
+    const obj = document.getElementById('port_id');
 
+    // Assuming ajax[index].response contains JavaScript-like code as a string
+    const lines = ajax[index].response.split(';'); // Split into individual lines of code
+
+    lines.forEach(line => {
+        if (line.trim()) { // Skip empty lines
+            const match = line.match(/new Option\(['"](.*?)['"],['"](.*?)['"]\)/);
+            if (match) {
+                const label = match[1];
+                const value = match[2];
+                obj.options[obj.options.length] = new Option(label, value);
+            }
+        }
+    });
+}
 </script>

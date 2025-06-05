@@ -1,8 +1,7 @@
 <?php
-$rrd_options = " --alt-y-grid";
 
-$class     = 'temperature';
-$unit      = 'C';
-$unit_long = 'Degree C';
+$rrd_options = ' --alt-y-grid';
+
+$class = 'temperature';
 
 require 'includes/html/graphs/device/sensor.inc.php';

@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateMempoolsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('mempools', function (Blueprint $table) {
             $table->increments('mempool_id');
@@ -21,7 +20,7 @@ class CreateMempoolsTable extends Migration
             $table->string('mempool_type', 32);
             $table->integer('mempool_precision')->default(1);
             $table->string('mempool_descr', 64);
-            $table->unsignedInteger('device_id')->index('device_id');
+            $table->unsignedInteger('device_id')->index();
             $table->integer('mempool_perc');
             $table->bigInteger('mempool_used');
             $table->bigInteger('mempool_free');
@@ -38,8 +37,8 @@ class CreateMempoolsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('mempools');
     }
-}
+};

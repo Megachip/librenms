@@ -1,4 +1,5 @@
 <?php
+
 /**
  * fs-net-pdu.inc.php
  *
@@ -15,16 +16,15 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
-
 $oid = '.1.3.6.1.4.1.30966.10.3.2.1.0';
 $voltage = snmp_get($device, $oid, '-Oqv');
 if ($voltage > 0) {
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, 0, 'PDU L1', 'Voltage', 1, 1, null, null, null, null, $voltage);
+    discover_sensor(null, 'voltage', $device, $oid, 0, 'PDU L1', 'Voltage', 1, 1, null, null, null, null, $voltage);
 }

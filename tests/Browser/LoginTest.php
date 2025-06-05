@@ -4,42 +4,51 @@ namespace LibreNMS\Tests\Browser;
 
 use App\Models\User;
 use App\Models\UserPref;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Hash;
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Laravel\Dusk\Browser;
 use LibreNMS\Config;
+use LibreNMS\Tests\Browser\Pages\DashboardPage;
 use LibreNMS\Tests\Browser\Pages\LoginPage;
 use LibreNMS\Tests\Browser\Pages\TwoFactorPage;
 use LibreNMS\Tests\DuskTestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Class LoginTest
- * @package LibreNMS\Tests\Browser
- * @group browser
  */
+#[Group('browser')]
 class LoginTest extends DuskTestCase
 {
-    use DatabaseMigrations;
+    use DatabaseTruncation;
+    protected array $connectionsToTruncate = ['testing', 'testing_persistent'];
+
+//    protected function setUp(): void
+//    {
+//        parent::setUp();
+//        $this->artisan('migrate');
+//    }
 
     /**
      * @throws \Throwable
      */
-    public function testUserCanLogin()
+    public function testUserCanLogin(): void
     {
         $this->browse(function (Browser $browser) {
             $password = 'some_password';
-            $user = factory(User::class)->create([
-                'password' => password_hash($password, PASSWORD_DEFAULT)
-            ]);
-
+            $user = User::factory()->create([
+                'password' => Hash::make($password),
+            ]); /** @var User $user */
             $browser->visit(new LoginPage())
                 ->type('username', $user->username)
                 ->type('password', 'wrong_password')
                 ->press('@login')
+                ->waitFor('@login')
                 ->assertPathIs('/login')
                 ->type('username', $user->username)
                 ->type('password', $password)
                 ->press('@login')
-                ->assertPathIs('/')
+                ->on(new DashboardPage())
                 ->logout();
 
             $user->delete();
@@ -49,13 +58,13 @@ class LoginTest extends DuskTestCase
     /**
      * @throws \Throwable
      */
-    public function test2faLogin()
+    public function test2faLogin(): void
     {
         $this->browse(function (Browser $browser) {
             $password = 'another_password';
-            $user = factory(User::class)->create([
-                'password' => password_hash($password, PASSWORD_DEFAULT)
-            ]);
+            $user = User::factory()->create([
+                'password' => Hash::make($password),
+            ]); /** @var User $user */
             Config::persist('twofactor', true); // set to db
             UserPref::setPref($user, 'twofactor', [
                 'key' => '5P3FLXBX7NU3ZBFOTWZL2GL5MKFEWBOA', // known key: 634456, 613687, 064292
@@ -67,16 +76,18 @@ class LoginTest extends DuskTestCase
             $browser->visit(new LoginPage())
                 ->type('username', $user->username)
                 ->type('password', $password)
-                ->press('#login')
+                ->press('@login')
                 ->on(new TwoFactorPage())
                 ->assertFocused('@input')
                 ->keys('@input', '999999', '{enter}') // try the wrong code first
+                ->waitFor('@input')
                 ->assertPathIs('/2fa')
                 ->keys('@input', '634456', '{enter}')
-                ->assertPathIs('/')
+                ->on(new DashboardPage())
                 ->logout();
 
             $user->delete();
+            \App\Models\Config::where('config_name', 'twofactor')->delete();
         });
     }
 }

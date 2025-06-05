@@ -1,4 +1,5 @@
 <?php
+
 /**
  * sitemonitor.inc.php
  *
@@ -15,15 +16,14 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2020 Josh Baird
  * @author     Josh Baird <joshbaird@gmail.com>
  */
-
-$switch = snmp_get($device, ".1.3.6.1.4.1.32050.2.1.26.5.3", "-Ovqe");
+$switch = snmp_get($device, '.1.3.6.1.4.1.32050.2.1.26.5.3', '-Ovqe');
 
 if ($switch) {
     //Create State Index
@@ -36,7 +36,7 @@ if ($switch) {
 
     $sensor_index = 3;
     discover_sensor(
-        $valid['sensor'],
+        null,
         'state',
         $device,
         '.1.3.6.1.4.1.32050.2.1.26.5.3',
@@ -50,6 +50,4 @@ if ($switch) {
         null,
         null
     );
-
-    create_sensor_to_state_index($device, $state_name, $sensor_index);
 }

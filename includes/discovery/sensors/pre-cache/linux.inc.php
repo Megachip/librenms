@@ -1,4 +1,5 @@
 <?php
+
 /**
  * linux.inc.php
  *
@@ -15,13 +16,12 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
-
 echo 'RaspberryPi ';
-$pre_cache['raspberry_pi_sensors'] = snmpwalk_cache_oid($device, '.1.3.6.1.4.1.8072.1.3.2.4.1.2.9.114.97.115.112.98.101.114.114.121', [], "NET-SNMP-EXTEND-MIB");
+$pre_cache['raspberry_pi_sensors'] = snmpwalk_cache_oid($device, '.1.3.6.1.4.1.8072.1.3.2.4.1.2.9.114.97.115.112.98.101.114.114.121', [], 'NET-SNMP-EXTEND-MIB');

@@ -3,21 +3,20 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateVminfoTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('vminfo', function (Blueprint $table) {
             $table->increments('id');
-            $table->unsignedInteger('device_id')->index('device_id');
+            $table->unsignedInteger('device_id')->index();
             $table->string('vm_type', 16)->default('vmware');
-            $table->integer('vmwVmVMID')->index('vmwVmVMID');
+            $table->integer('vmwVmVMID')->index();
             $table->string('vmwVmDisplayName', 128);
             $table->string('vmwVmGuestOS', 128);
             $table->integer('vmwVmMemSize');
@@ -31,8 +30,8 @@ class CreateVminfoTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('vminfo');
     }
-}
+};

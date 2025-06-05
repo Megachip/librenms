@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ActiveDirectoryCommonirectoryCommon.php
  *
@@ -15,16 +16,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace LibreNMS\Authentication;
 
+use LDAP\Connection;
 use LibreNMS\Config;
 
 trait ActiveDirectoryCommon
@@ -48,13 +50,15 @@ trait ActiveDirectoryCommon
         }
         $revLevel = hexdec(substr($sidHex, 0, 2));
         $authIdent = hexdec(substr($sidHex, 4, 12));
-        return 'S-'.$revLevel.'-'.$authIdent.'-'.implode('-', $subAuths);
+
+        return 'S-' . $revLevel . '-' . $authIdent . '-' . implode('-', $subAuths);
     }
 
     protected function getCn($dn)
     {
         $dn = str_replace('\\,', '~C0mmA~', $dn);
         preg_match('/[^,]*/', $dn, $matches, PREG_OFFSET_CAPTURE, 3);
+
         return str_replace('~C0mmA~', ',', $matches[0][0]);
     }
 
@@ -69,7 +73,7 @@ trait ActiveDirectoryCommon
             $attributes
         );
         $entries = ldap_get_entries($link_identifier, $result);
-        if ($entries['count'] > 0) {
+        if ((int) $entries['count'] > 0) {
             return $entries[0]['dn'];
         } else {
             return '';
@@ -113,7 +117,7 @@ trait ActiveDirectoryCommon
             $attributes
         );
         $entries = ldap_get_entries($connection, $result);
-        if ($entries['count'] > 0) {
+        if ((int) $entries['count'] > 0) {
             $membername = $entries[0]['name'][0];
         } else {
             $membername = $username;
@@ -124,7 +128,7 @@ trait ActiveDirectoryCommon
 
     public function getGroupList()
     {
-        $ldap_groups   = array();
+        $ldap_groups = [];
 
         // show all Active Directory Users by default
         $default_group = 'Users';
@@ -135,7 +139,7 @@ trait ActiveDirectoryCommon
             }
         }
 
-        if (!Config::has('auth_ad_groups') && !Config::has('auth_ad_group')) {
+        if (! Config::has('auth_ad_groups') && ! Config::has('auth_ad_group')) {
             $ldap_groups[] = $this->getDn($default_group);
         }
 
@@ -146,71 +150,48 @@ trait ActiveDirectoryCommon
         return $ldap_groups;
     }
 
-    public function getUserlist()
-    {
-        $connection = $this->getConnection();
-
-        $userlist = array();
-        $ldap_groups = $this->getGroupList();
-
-        foreach ($ldap_groups as $ldap_group) {
-            $search_filter = "(&(memberOf:1.2.840.113556.1.4.1941:=$ldap_group)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))";
-            if (Config::get('auth_ad_user_filter')) {
-                $search_filter = "(&" . Config::get('auth_ad_user_filter') . $search_filter .")";
-            }
-            $attributes = array('samaccountname', 'displayname', 'objectsid', 'mail');
-            $search = ldap_search($connection, Config::get('auth_ad_base_dn'), $search_filter, $attributes);
-            $results = ldap_get_entries($connection, $search);
-
-            foreach ($results as $result) {
-                if (isset($result['samaccountname'][0])) {
-                    $userlist[$result['samaccountname'][0]] = $this->userFromAd($result);
-                }
-            }
-        }
-
-        return array_values($userlist);
-    }
-
     /**
      * Generate a user array from an AD LDAP entry
      * Must have the attributes: objectsid, samaccountname, displayname, mail
+     *
      * @internal
      *
-     * @param $entry
+     * @param  array  $entry
      * @return array
      */
     protected function userFromAd($entry)
     {
-        return array(
+        return [
             'user_id' => $this->getUseridFromSid($this->sidFromLdap($entry['objectsid'][0])),
             'username' => $entry['samaccountname'][0],
             'realname' => $entry['displayname'][0],
             'email' => isset($entry['mail'][0]) ? $entry['mail'][0] : null,
             'descr' => '',
-            'level' => $this->getUserlevel($entry['samaccountname'][0]),
             'can_modify_passwd' => 0,
-        );
+        ];
     }
 
-    public function getUser($user_id)
+    public function getUser($user_id): array
     {
         $connection = $this->getConnection();
         $domain_sid = $this->getDomainSid();
 
         $search_filter = "(&(objectcategory=person)(objectclass=user)(objectsid=$domain_sid-$user_id))";
-        $attributes = array('samaccountname', 'displayname', 'objectsid', 'mail');
+        $attributes = ['samaccountname', 'displayname', 'objectsid', 'mail'];
         $search = ldap_search($connection, Config::get('auth_ad_base_dn'), $search_filter, $attributes);
-        $entry = ldap_get_entries($connection, $search);
 
-        if (isset($entry[0]['samaccountname'][0])) {
-            return $this->userFromAd($entry[0]);
+        if ($search !== false) {
+            $entry = ldap_get_entries($connection, $search);
+
+            if (isset($entry[0]['samaccountname'][0])) {
+                return $this->userFromAd($entry[0]);
+            }
         }
 
-        return array();
+        return [];
     }
 
-    protected function getDomainSid()
+    protected function getDomainSid(): string
     {
         $connection = $this->getConnection();
 
@@ -221,9 +202,17 @@ trait ActiveDirectoryCommon
             $connection,
             $dn_candidate,
             '(objectClass=*)',
-            array('objectsid')
+            ['objectsid']
         );
+
+        if ($search === false) {
+            \Log::debug('AD Auth: Could not determine domain SID');
+
+            return '';
+        }
+
         $entry = ldap_get_entries($connection, $search);
+
         return substr($this->sidFromLdap($entry[0]['objectsid'][0]), 0, 41);
     }
 
@@ -232,5 +221,5 @@ trait ActiveDirectoryCommon
      *
      * @return resource
      */
-    abstract protected function getConnection();
+    abstract protected function getConnection(): ?Connection;
 }

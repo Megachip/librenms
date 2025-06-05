@@ -1,4 +1,5 @@
 <?php
+
 /**
  * microsemipdsine.inc.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Lorenzo Zafra
  * @author     Lorenzo Zafra<zafra@ualberta.ca>
  */
@@ -27,7 +28,7 @@
 
 $mainVoltage = trim(snmp_get($device, '.1.3.6.1.4.1.7428.1.2.2.1.1.2.1', '-Oqv'), '" ');
 
-if (!empty($mainVoltage)) {
+if (! empty($mainVoltage)) {
     $divisor = 1;
     $index = '2.1';
     $descr = 'Power Supply Voltage';
@@ -35,5 +36,5 @@ if (!empty($mainVoltage)) {
     $oid = '.1.3.6.1.4.1.7428.1.2.2.1.1.2.1';
     $current_value = $mainVoltage / $divisor;
 
-    discover_sensor($valid['sensor'], 'voltage', $device, $oid, $index, $type, $descr, $divisor, '1', null, null, null, null, $current_value);
+    discover_sensor(null, 'voltage', $device, $oid, $index, $type, $descr, $divisor, '1', null, null, null, null, $current_value);
 }

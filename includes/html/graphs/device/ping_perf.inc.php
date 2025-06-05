@@ -12,23 +12,10 @@
  * the source code distribution for details.
  */
 
-$scale_min = '0';
+$filename = Rrd::name($device['hostname'], 'icmp-perf');
 
-require 'includes/html/graphs/common.inc.php';
+$descr = 'Milliseconds';
+$ds = 'avg';
+$scale_min = 0;
 
-$rrd_filename = rrd_name($device['hostname'], 'ping-perf');
-
-$rrd_options .= ' DEF:ping='.$rrd_filename.':ping:AVERAGE';
-$rrd_options .= " 'COMMENT:Milliseconds      Cur      Min     Max     Avg\\n'";
-$rrd_options .= ' LINE1.25:ping#36393D:Ping';
-$rrd_options .= ' GPRINT:ping:LAST:%14.2lf  GPRINT:ping:AVERAGE:%6.2lf';
-$rrd_options .= " GPRINT:ping:MAX:%6.2lf  'GPRINT:ping:AVERAGE:%6.2lf\\n'";
-
-if ($_GET['previous'] == 'yes') {
-    $rrd_options .= " COMMENT:' \\n'";
-    $rrd_options .= " DEF:pingX=$rrd_filename:ping:AVERAGE:start=$prev_from:end=$from";
-    $rrd_options .= " SHIFT:pingX:$period";
-    $rrd_options .= " LINE1.25:pingX#CCCCCC:'Prev Ping'\t\t";
-    $rrd_options .= " GPRINT:pingX:AVERAGE:%6.2lf";
-    $rrd_options .= " GPRINT:pingX:MAX:%6.2lf  'GPRINT:pingX:AVERAGE:%6.2lf\\n'";
-}
+require 'includes/html/graphs/generic_stats.inc.php';

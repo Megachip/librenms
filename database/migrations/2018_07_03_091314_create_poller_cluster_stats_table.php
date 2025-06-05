@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreatePollerClusterStatsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('poller_cluster_stats', function (Blueprint $table) {
             $table->increments('id');
@@ -22,7 +21,7 @@ class CreatePollerClusterStatsTable extends Migration
             $table->double('worker_seconds')->unsigned();
             $table->unsignedInteger('workers');
             $table->unsignedInteger('frequency');
-            $table->unique(['parent_poller', 'poller_type'], 'parent_poller_poller_type');
+            $table->unique(['parent_poller', 'poller_type']);
         });
     }
 
@@ -31,8 +30,8 @@ class CreatePollerClusterStatsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('poller_cluster_stats');
     }
-}
+};

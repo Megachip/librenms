@@ -1,38 +1,52 @@
 <?php
 
+use LibreNMS\Util\Clean;
+use LibreNMS\Util\Html;
+
 print_optionbar_start();
 
 echo "<span style='font-weight: bold;'>Apps</span> &#187; ";
 
-unset($sep);
+$sep = '';
 
-$link_array = array(
-    'page'   => 'device',
+$link_array = [
+    'page' => 'device',
     'device' => $device['device_id'],
-    'tab'    => 'apps',
-);
+    'tab' => 'apps',
+];
 
-foreach (dbFetchRows('SELECT * FROM `applications` WHERE `device_id` = ? ORDER BY `app_type` ASC', array($device['device_id'])) as $app) {
+$apps = DeviceCache::getPrimary()->applications
+    ->sortBy('show_name', SORT_NATURAL | SORT_FLAG_CASE);
+
+foreach ($apps as $current_app) {
     echo $sep;
 
-    if (!$vars['app']) {
-        $vars['app'] = $app['app_type'];
+    if (! $vars['app']) {
+        $vars['app'] = $current_app->app_type;
     }
 
-    if ($vars['app'] == $app['app_type']) {
+    if ($vars['app'] == $current_app->app_type) {
+        $app = $current_app; // set $app for included page
         echo "<span class='pagemenu-selected'>";
-    } else {
     }
 
-    $link_add = array('app' => $app['app_type']);
-    $text     = nicecase($app['app_type']);
-    if (!empty($app['app_instance'])) {
-        $text                .= '('.$app['app_instance'].')';
-        $link_add['instance'] = $app['app_id'];
+    $link_add = ['app' => $current_app->app_type];
+
+    $app_state = Html::appStateIcon($current_app->app_state);
+    if (! empty($app_state['icon'])) {
+        $text = '<font color="' . $app_state['color'] . '"><i title="' . $app_state['hover_text'] . '" class="fa ' . $app_state['icon'] . ' fa-fw fa-lg" aria-hidden="true"></i></font>';
+    } else {
+        $text = '';
+    }
+    $text .= $current_app->displayName();
+
+    if (! empty($current_app->app_instance)) {
+        $text .= '(' . $current_app->app_instance . ')';
+        $link_add['instance'] = $current_app->app_id;
     }
 
     echo generate_link($text, $link_array, $link_add);
-    if ($vars['app'] == $app['app_type']) {
+    if ($vars['app'] == $current_app->app_type) {
         echo '</span>';
     }
 
@@ -41,19 +55,9 @@ foreach (dbFetchRows('SELECT * FROM `applications` WHERE `device_id` = ? ORDER B
 
 print_optionbar_end();
 
-$where_array = array(
-    $device['device_id'],
-    $vars['app'],
-);
-if ($vars['instance']) {
-    $where         = ' AND `app_id` = ?';
-    $where_array[] = $vars['instance'];
-}
-
-$app = dbFetchRow('SELECT * FROM `applications` WHERE `device_id` = ? AND `app_type` = ?'.$where, $where_array);
-
-if (is_file('includes/html/pages/device/apps/'.mres($vars['app']).'.inc.php')) {
-    include 'includes/html/pages/device/apps/'.mres($vars['app']).'.inc.php';
+$include_file = 'includes/html/pages/device/apps/' . Clean::fileName($app->app_type) . '.inc.php';
+if (is_file($include_file)) {
+    include $include_file;
 }
 
 $pagetitle[] = 'Apps';

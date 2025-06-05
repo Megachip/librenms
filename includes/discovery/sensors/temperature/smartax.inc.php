@@ -1,4 +1,5 @@
 <?php
+
 /**
  * smartax.inc.php
  *
@@ -15,14 +16,13 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 TheGreatDoc
  * @author     TheGreatDoc
  */
-
 $temp_oid = '1.3.6.1.4.1.2011.2.6.7.1.1.2.1.10.0';
 $descr_oid = '1.3.6.1.4.1.2011.2.6.7.1.1.2.1.7.0';
 
@@ -33,10 +33,10 @@ $data = reset($data);
 $descr_data = reset($descr_data);
 
 foreach ($data as $index => $value) {
-    if ($value < "999") {
+    if ($value < '999') {
         $tempCurr = $value;
         $temperature_oid = '.' . $temp_oid . '.' . $index;
         $descr = $descr_data[$index];
-        discover_sensor($valid['sensor'], 'temperature', $device, $temperature_oid, $index, 'smartax', $descr, '1', '1', null, null, null, null, $tempCurr);
+        discover_sensor(null, 'temperature', $device, $temperature_oid, $index, 'smartax', $descr, '1', '1', null, null, null, null, $tempCurr);
     }
 }

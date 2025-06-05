@@ -3,23 +3,22 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateGraphTypesTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('graph_types', function (Blueprint $table) {
-            $table->string('graph_type', 32)->index('graph_type');
-            $table->string('graph_subtype', 64)->index('graph_subtype');
-            $table->string('graph_section', 32)->index('graph_section');
+            $table->string('graph_type', 32)->index();
+            $table->string('graph_subtype', 64)->index();
+            $table->string('graph_section', 32)->index();
             $table->string('graph_descr')->nullable();
             $table->integer('graph_order');
-            $table->primary(['graph_type','graph_subtype','graph_section']);
+            $table->primary(['graph_type', 'graph_subtype', 'graph_section']);
         });
     }
 
@@ -28,8 +27,8 @@ class CreateGraphTypesTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('graph_types');
     }
-}
+};

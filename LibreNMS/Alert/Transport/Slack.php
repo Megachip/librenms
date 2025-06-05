@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2014 Daniel Preussker <f0o@devilcode.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,71 +12,70 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * API Transport
+ *
  * @author f0o <f0o@devilcode.org>
  * @copyright 2014 f0o, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
+use Illuminate\Support\Str;
 use LibreNMS\Alert\Transport;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Slack extends Transport
 {
-    public function deliverAlert($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
-        $slack_opts = $this->parseUserOptions($this->config['slack-options']);
-        $slack_opts['url'] = $this->config['slack-url'];
+        $slack_opts = $this->parseUserOptions($this->config['slack-options'] ?? '');
+        $icon = $this->config['slack-icon_emoji'] ?? $slack_opts['icon_emoji'] ?? null;
+        $slack_msg = html_entity_decode(strip_tags($alert_data['msg'] ?? ''), ENT_QUOTES);
 
-        return $this->contactSlack($obj, $slack_opts);
-    }
+        /*
+         * Normalize spaces since you might want to do logic in your template, and Slack is
+         * very sensitive to spaces.  This turns every instance of two or more spaces into
+         * one space.
+         */
+        $slack_msg = preg_replace('/ {2,}/', ' ', $slack_msg);
 
-    public static function contactSlack($obj, $api)
-    {
-        $host          = $api['url'];
-        $curl          = curl_init();
-        $slack_msg     = strip_tags($obj['msg']);
-        $color         = self::getColorForState($obj['state']);
-        $data          = [
+        /*
+         * Replace "standard" markdown links with Slack-specific markdown.
+         * This has to be done after strip_tags() because these are actually tags.
+         * So [Target](https://mysite.example.com) becomes <https://mysite.example.com|Target>
+         */
+        $slack_msg = preg_replace('/\[([^\]]+)\]\(((https?|mailto|ftp):[^\)]+)\)/', '<$2|$1>', $slack_msg);
+
+        $data = [
             'attachments' => [
                 0 => [
                     'fallback' => $slack_msg,
-                    'color' => $color,
-                    'title' => $obj['title'],
+                    'color' => self::getColorForState($alert_data['state']),
+                    'title' => $alert_data['title'] ?? null,
                     'text' => $slack_msg,
                     'mrkdwn_in' => ['text', 'fallback'],
-                    'author_name' => $api['author_name'],
+                    'author_name' => $this->config['slack-author'] ?? $slack_opts['author'] ?? null,
                 ],
             ],
-            'channel' => $api['channel'],
-            'username' => $api['username'],
-            'icon_emoji' => ':' .$api['icon_emoji'].':',
+            'channel' => $this->config['slack-channel'] ?? $slack_opts['channel'] ?? null,
+            'icon_emoji' => $icon ? Str::finish(Str::start($icon, ':'), ':') : null,
         ];
-        $alert_message = json_encode($data);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_URL, $host);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $alert_message);
 
-        $ret  = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            var_dump("API '$host' returned Error"); //FIXME: propper debuging
-            var_dump("Params: " . $alert_message); //FIXME: propper debuging
-            var_dump("Return: " . $ret); //FIXME: propper debuging
-            return 'HTTP Status code ' . $code;
+        $res = Http::client()->post($this->config['slack-url'] ?? '', $data);
+
+        if ($res->successful()) {
+            return true;
         }
-        return true;
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $slack_msg, $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -86,15 +86,31 @@ class Slack extends Transport
                     'type' => 'text',
                 ],
                 [
-                    'title' => 'Slack Options',
-                    'name' => 'slack-options',
-                    'descr' => 'Slack Options',
-                    'type' => 'textarea',
-                ]
+                    'title' => 'Channel',
+                    'name' => 'slack-channel',
+                    'descr' => 'Channel to post to',
+                    'type' => 'text',
+                ],
+                [
+                    'title' => 'Author Name',
+                    'name' => 'slack-author',
+                    'descr' => 'Name of author',
+                    'type' => 'text',
+                    'default' => 'LibreNMS',
+                ],
+                [
+                    'title' => 'Icon',
+                    'name' => 'slack-icon_emoji',
+                    'descr' => 'Name of emoji for icon',
+                    'type' => 'text',
+                ],
             ],
             'validation' => [
                 'slack-url' => 'required|url',
-            ]
+                'slack-channel' => 'string',
+                'slack-author' => 'string',
+                'slack-icon_emoji' => 'string',
+            ],
         ];
     }
 }

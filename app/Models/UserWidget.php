@@ -2,31 +2,40 @@
 
 namespace App\Models;
 
-use Auth;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserWidget extends Model
 {
     public $timestamps = false;
     protected $table = 'users_widgets';
     protected $primaryKey = 'user_widget_id';
-    protected $fillable = ['user_id', 'widget_id', 'col', 'row', 'size_x', 'size_y', 'title', 'refresh', 'settings', 'dashboard_id'];
-    protected $casts = ['settings' => 'array'];
+    protected $fillable = ['user_id', 'widget', 'col', 'row', 'size_x', 'size_y', 'title', 'refresh', 'settings', 'dashboard_id'];
+
+    /**
+     * @return array{settings: 'array'}
+     */
+    protected function casts(): array
+    {
+        return [
+            'settings' => 'array',
+        ];
+    }
 
     // ---- Define Relationships ----
-
-    public function user()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, $this>
+     */
+    public function user(): BelongsTo
     {
-        return $this->belongsTo('App\Models\User', 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function widget()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\Dashboard, $this>
+     */
+    public function dashboard(): BelongsTo
     {
-        return $this->hasOne('App\Models\Widget', 'widget_id');
-    }
-
-    public function dashboard()
-    {
-        return $this->belongsTo('App\Models\Dashboard', 'dashboard_id');
+        return $this->belongsTo(Dashboard::class, 'dashboard_id');
     }
 }

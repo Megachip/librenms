@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Ipv4Network.php
  *
@@ -15,27 +16,46 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Ipv4Network extends Model
 {
+    use HasFactory;
+
     public $timestamps = false;
     protected $primaryKey = 'ipv4_network_id';
+    protected $fillable = [
+        'ipv4_network',
+        'context_name',
+    ];
 
     // ---- Define Relationships ----
-
-    public function ipv4()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Ipv4Address, $this>
+     */
+    public function ipv4(): HasMany
     {
-        return $this->hasMany('App\Models\Ipv4Address', 'ipv4_network_id');
+        return $this->hasMany(Ipv4Address::class, 'ipv4_network_id');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough<\App\Models\Port, \App\Models\Ipv4Address, $this>
+     */
+    public function connectedPorts(): HasManyThrough
+    {
+        return $this->hasManyThrough(Port::class, Ipv4Address::class, 'ipv4_network_id', 'port_id', 'ipv4_network_id', 'port_id');
     }
 }

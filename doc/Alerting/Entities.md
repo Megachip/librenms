@@ -1,6 +1,3 @@
-source: Alerting/Entities.md
-path: blob/master/doc/
-
 # Entities
 
 Entities as described earlier are based on the table and column names
@@ -66,7 +63,7 @@ Entity | Description
 `ports.ifOperStatus` | The operational status of the port (up or down)
 `ports.ifAdminStatus` | The administrative status of the port (up or down)
 `ports.ifDuplex` | Duplex setting of the port
-`ports.ifMtu` | The MTU setting of the port.`
+`ports.ifMtu` | The MTU setting of the port.
 
 ## Processors
 

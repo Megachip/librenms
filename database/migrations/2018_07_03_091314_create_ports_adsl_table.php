@@ -3,19 +3,18 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreatePortsAdslTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ports_adsl', function (Blueprint $table) {
-            $table->unsignedInteger('port_id')->unique('interface_id');
-            $table->timestamp('port_adsl_updated')->default(DB::raw('CURRENT_TIMESTAMP'));
+            $table->unsignedInteger('port_id')->unique();
+            $table->timestamp('port_adsl_updated')->useCurrent();
             $table->string('adslLineCoding', 8);
             $table->string('adslLineType', 16);
             $table->string('adslAtucInvVendorID', 8);
@@ -41,8 +40,8 @@ class CreatePortsAdslTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ports_adsl');
     }
-}
+};

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * alert-rules.inc.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
@@ -28,8 +29,8 @@ use LibreNMS\Config;
 
 header('Content-type: application/json');
 
-if (!Auth::user()->hasGlobalAdmin()) {
-    die(json_encode([
+if (! Auth::user()->hasGlobalAdmin()) {
+    exit(json_encode([
         'status' => 'error',
         'message' => 'ERROR: You need to be admin',
     ]));
@@ -47,20 +48,22 @@ if (is_numeric($template_id)) {
         'invert' => Config::get('alert_rule.invert_rule_match'),
         'interval' => 60 * Config::get('alert_rule.interval'),
         'recovery' => Config::get('alert_rule.recovery_alerts'),
+        'acknowledgement' => Config::get('alert_rule.acknowledgement_alerts'),
     ];
     $output = [
         'status' => 'ok',
         'name' => $rule['name'],
+        'notes' => $rule['notes'],
         'builder' => $rule['builder'] ?: QueryBuilderParser::fromOld($rule['rule'])->toArray(),
-        'extra' => array_replace($default_extra, (array)$rule['extra']),
+        'extra' => array_replace($default_extra, (array) $rule['extra']),
         'severity' => $rule['severity'] ?: Config::get('alert_rule.severity'),
-        'invert_map' => Config::get('alert_rule.invert_map')
+        'invert_map' => Config::get('alert_rule.invert_map'),
     ];
 } else {
     $output = [
         'status' => 'error',
-        'message' => 'Invalid template'
+        'message' => 'Invalid template',
     ];
 }
 
-die(json_encode($output));
+exit(json_encode($output));

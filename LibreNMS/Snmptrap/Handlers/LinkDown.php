@@ -1,4 +1,5 @@
 <?php
+
 /**
  * LinkDown.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -26,6 +27,7 @@
 namespace LibreNMS\Snmptrap\Handlers;
 
 use App\Models\Device;
+use LibreNMS\Enum\Severity;
 use LibreNMS\Interfaces\SnmptrapHandler;
 use LibreNMS\Snmptrap\Trap;
 use Log;
@@ -36,8 +38,8 @@ class LinkDown implements SnmptrapHandler
      * Handle snmptrap.
      * Data is pre-parsed and delivered as a Trap.
      *
-     * @param Device $device
-     * @param Trap $trap
+     * @param  Device  $device
+     * @param  Trap  $trap
      * @return void
      */
     public function handle(Device $device, Trap $trap)
@@ -46,22 +48,26 @@ class LinkDown implements SnmptrapHandler
 
         $port = $device->ports()->where('ifIndex', $ifIndex)->first();
 
-        if (!$port) {
+        if (! $port) {
             Log::warning("Snmptrap linkDown: Could not find port at ifIndex $ifIndex for device: " . $device->hostname);
+
             return;
         }
 
-        $port->ifOperStatus = $trap->getOidData("IF-MIB::ifOperStatus.$ifIndex");
-        $port->ifAdminStatus = $trap->getOidData("IF-MIB::ifAdminStatus.$ifIndex");
+        $port->ifOperStatus = 'down';
 
-        Log::event("SNMP Trap: linkDown $port->ifAdminStatus/$port->ifOperStatus " . $port->ifDescr, $device->device_id, 'interface', 5, $port->port_id);
+        $trapAdminStatus = $trap->getOidData("IF-MIB::ifAdminStatus.$ifIndex");
+        if ($trapAdminStatus) {
+            $port->ifAdminStatus = $trapAdminStatus;
+        }
+        $trap->log("SNMP Trap: linkDown $port->ifAdminStatus/$port->ifOperStatus " . $port->ifDescr, Severity::Error, 'interface', $port->port_id);
 
         if ($port->isDirty('ifAdminStatus')) {
-            Log::event("Interface Disabled : $port->ifDescr (TRAP)", $device->device_id, "interface", 3, $port->port_id);
+            $trap->log("Interface Disabled : $port->ifDescr (TRAP)", Severity::Notice, 'interface', $port->port_id);
         }
 
         if ($port->isDirty('ifOperStatus')) {
-            Log::event("Interface went Down : $port->ifDescr (TRAP)", $device->device_id, "interface", 5, $port->port_id);
+            $trap->log("Interface went Down : $port->ifDescr (TRAP)", Severity::Error, 'interface', $port->port_id);
         }
 
         $port->save();

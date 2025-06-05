@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Dashboard extends Model
 {
@@ -11,31 +13,11 @@ class Dashboard extends Model
     protected $primaryKey = 'dashboard_id';
     protected $fillable = ['user_id', 'dashboard_name', 'access'];
 
-    // ---- Helper Functions ---
-
-    /**
-     * @param User $user
-     * @return bool
-     */
-    public function canRead($user)
-    {
-        return $this->user_id == $user->user_id || $this->access > 0;
-    }
-
-    /**
-     * @param User $user
-     * @return bool
-     */
-    public function canWrite($user)
-    {
-        return $this->user_id == $user->user_id || $this->access > 1;
-    }
-
     // ---- Query scopes ----
 
     /**
-     * @param Builder $query
-     * @param User $user
+     * @param  Builder  $query
+     * @param  User  $user
      * @return Builder|static
      */
     public function scopeAllAvailable(Builder $query, $user)
@@ -45,14 +27,19 @@ class Dashboard extends Model
     }
 
     // ---- Define Relationships ----
-
-    public function user()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, $this>
+     */
+    public function user(): BelongsTo
     {
-        return $this->belongsTo('App\Models\User', 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function widgets()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserWidget, $this>
+     */
+    public function widgets(): HasMany
     {
-        return $this->hasMany('App\Models\UserWidget', 'dashboard_id');
+        return $this->hasMany(UserWidget::class, 'dashboard_id');
     }
 }

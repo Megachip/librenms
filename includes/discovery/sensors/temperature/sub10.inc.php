@@ -4,7 +4,7 @@ echo 'Sub10 temperature ';
 
 // Get Current Value
 $temp_oid = 'sub10UnitLclMWUTemperature.0';
-list($oid, $current) = explode(' ', snmp_get($device, $temp_oid, '-OsqnU', 'SUB10SYSTEMS-MIB'));
+[$oid, $current] = explode(' ', snmp_get($device, $temp_oid, '-OsqnU', 'SUB10SYSTEMS-MIB'));
 
 // Get Alarm Ranges
 $alarm_oid = 'sub10UnitMgmtAlarmName';
@@ -25,4 +25,4 @@ foreach (explode("\n", $threshes) as $thresh) {
 }
 
 // Create Sensor
-discover_sensor($valid['sensor'], 'temperature', $device, $oid, $oid, 'sub10', 'Modem', '1', '1', $thresholds[$indexes['low']], null, null, $thresholds[$indexes['high']], $current);
+discover_sensor(null, 'temperature', $device, $oid, $oid, 'sub10', 'Modem', '1', '1', $thresholds[$indexes['low']], null, null, $thresholds[$indexes['high']], $current);

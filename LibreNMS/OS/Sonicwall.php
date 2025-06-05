@@ -1,4 +1,5 @@
 <?php
+
 /*
  * LibreNMS
  *
@@ -10,13 +11,14 @@
  *
  * @package    LibreNMS
  * @subpackage webui
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
  * @copyright  2018 LibreNMS
  * @author     LibreNMS Contributors
 */
 
 namespace LibreNMS\OS;
 
+use Illuminate\Support\Str;
 use LibreNMS\Device\Processor;
 use LibreNMS\Interfaces\Discovery\ProcessorDiscovery;
 use LibreNMS\OS;
@@ -31,8 +33,8 @@ class Sonicwall extends OS implements ProcessorDiscovery
      */
     public function discoverProcessors()
     {
-        if (starts_with($this->getDevice()['sysObjectID'], '.1.3.6.1.4.1.8741.1')) {
-            return array(
+        if (Str::startsWith($this->getDeviceArray()['sysObjectID'], '.1.3.6.1.4.1.8741.1')) {
+            return [
                 Processor::discover(
                     'sonicwall',
                     $this->getDeviceId(),
@@ -40,19 +42,19 @@ class Sonicwall extends OS implements ProcessorDiscovery
                     0,
                     'CPU',
                     1
-                )
-            );
+                ),
+            ];
         } else {
-            return array(
+            return [
                 Processor::discover(
                     'sonicwall',
                     $this->getDeviceId(),
-                    $this->getDevice()['sysObjectID'] . '.2.1.3.0',  // different OID for each model
+                    $this->getDeviceArray()['sysObjectID'] . '.2.1.3.0',  // different OID for each model
                     0,
                     'CPU',
                     1
-                )
-            );
+                ),
+            ];
         }
     }
 }

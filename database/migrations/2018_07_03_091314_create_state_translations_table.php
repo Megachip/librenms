@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateStateTranslationsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('state_translations', function (Blueprint $table) {
             $table->increments('state_translation_id');
@@ -20,8 +19,12 @@ class CreateStateTranslationsTable extends Migration
             $table->boolean('state_draw_graph');
             $table->smallInteger('state_value')->default(0);
             $table->boolean('state_generic_value');
-            $table->timestamp('state_lastupdated')->default(DB::raw('CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP'));
-            $table->unique(['state_index_id','state_value'], 'state_index_id_value');
+            if (LibreNMS\DB\Eloquent::getDriver() == 'mysql') {
+                $table->timestamp('state_lastupdated')->default(DB::raw('CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP'));
+            } else {
+                $table->timestamp('state_lastupdated')->useCurrent();
+            }
+            $table->unique(['state_index_id', 'state_value']);
         });
     }
 
@@ -30,8 +33,8 @@ class CreateStateTranslationsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('state_translations');
     }
-}
+};

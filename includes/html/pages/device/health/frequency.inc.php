@@ -1,7 +1,5 @@
 <?php
 
-$class      = 'frequency';
-$unit       = 'Hz';
-$graph_type = 'sensor_frequency';
+$class = 'frequency';
 
 require 'sensors.inc.php';

@@ -1,6 +1,7 @@
 <?php
+
 /**
- * DocTest.php
+ * DocsTest.php
  *
  * Tests for Docs.
  *
@@ -15,61 +16,45 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
 
 namespace LibreNMS\Tests;
 
+use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\Yaml\Yaml;
 
-class DocTest extends TestCase
+class DocsTest extends TestCase
 {
     private $hidden_pages = [
-        'API/API-Docs.md',
-        'Alerting/Old_Templates.md',
-        'Extensions/Alerting.md',
-        'Extensions/Email-Alerting.md',
-        'Extensions/Graphite.md',
-        'Extensions/InfluxDB.md',
-        'Extensions/OpenTSDB.md',
-        'Extensions/Poller-Service.md',
-        'Extensions/Port-Description-Parser.md',
-        'Extensions/Prometheus.md',
-        'Extensions/RRDCached-Security.md',
-        'General/Changelogs/2013.md',
-        'General/Changelogs/2014.md',
-        'General/Changelogs/2015.md',
-        'General/Changelogs/2016.md',
-        'General/Changelogs/2017.md',
-        'General/Changelogs/2018.md',
-        'General/Contributing.md',
-        'General/Credits.md',
-        'Installation/Installation-(Debian-Ubuntu).md',
-        'Installation/Installation-(RHEL-CentOS).md',
-        'Installation/Installation-CentOS-6-Apache-Nginx.md',
-        'Installation/Installation-Ubuntu-1404-Apache.md',
-        'Installation/Installation-Ubuntu-1404-Lighttpd.md',
-        'Installation/Installation-Ubuntu-1404-Nginx.md',
-        'Installation/Installation-Ubuntu-1604-Apache.md',
-        'Installation/Installation-Ubuntu-1604-Nginx.md',
-        'Installation/Installing-LibreNMS.md',
-        'Support/Support-New-OS.md',
-        'Installation/Ubuntu-image.md',
-        'Installation/CentOS-image.md',
     ];
-    
-    public function testDocExist()
+
+    #[Group('docs')]
+    public function testDocExist(): void
     {
         $mkdocs = Yaml::parse(file_get_contents(__DIR__ . '/../mkdocs.yml'));
-        $dir    = __DIR__ . '/../doc/';
-        $files  = str_replace($dir, '', rtrim(`find $dir -name '*.md'`));
+        $dir = __DIR__ . '/../doc/';
 
-        // check for missing pages
+        // Define paths to exclude
+        $exclude_paths = [
+            '*/Extensions/Applications/*',
+            '*/General/Changelogs/*',
+            '*/Alerting/Transports/*',
+        ];
+
+        // Build the exclusion part of the find command
+        $exclude_conditions = implode(' -not -path ', array_map(fn ($path) => escapeshellarg($path), $exclude_paths));
+        $find_command = "find $dir -name '*.md' -not -path $exclude_conditions";
+
+        // Run the find command with exclusions
+        $files = str_replace($dir, '', rtrim(`$find_command`));
+
+        // Check for missing pages
         collect(explode(PHP_EOL, $files))
             ->diff(collect($mkdocs['nav'])->flatten()->merge($this->hidden_pages)) // grab defined pages and diff
             ->each(function ($missing_doc) {

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * commander-plus.inc.php
  *
@@ -15,14 +16,13 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
-
 $start_oid = '.1.3.6.1.4.1.18642.1.2.4';
 $state_table = snmpwalk_cache_oid($device, '.1.3.6.1.4.1.18642.1.2.4', [], 'CCPOWER-MIB');
 $x = 1;
@@ -35,10 +35,7 @@ foreach ($state_table[0] as $state_name => $state_value) {
     create_state_index($state_name, $states);
 
     $descr = $state_name;
-    discover_sensor($valid['sensor'], 'state', $device, $start_oid.'.'.$x.'.0', $state_name, $state_name, $descr, 1, 1, null, null, null, null, $state_value, 'snmp');
-
-    //Create Sensor To State Index
-    create_sensor_to_state_index($device, $state_name, $state_name);
+    discover_sensor(null, 'state', $device, $start_oid . '.' . $x . '.0', $state_name, $state_name, $descr, 1, 1, null, null, null, null, $state_value, 'snmp');
     $x++;
 }
 

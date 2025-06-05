@@ -2,11 +2,13 @@
 <?php
 
 use App\Jobs\PingCheck;
+use LibreNMS\Data\Store\Datastore;
+use LibreNMS\Util\Debug;
 
 $init_modules = ['alerts', 'laravel', 'nodb'];
 require __DIR__ . '/includes/init.php';
 
-$options = getopt('hdvrg:');
+$options = getopt('fhdvrg:');
 
 if (isset($options['h'])) {
     echo <<<'END'
@@ -20,16 +22,18 @@ END;
     exit;
 }
 
-set_debug(isset($options['d']));
-
-if (isset($options['v'])) {
-    global $vdebug;
-    $vdebug = true;
+$scheduler = \LibreNMS\Config::get('schedule_type.ping');
+if (! isset($options['f']) && $scheduler != 'legacy' && $scheduler != 'cron') {
+    if (Debug::isEnabled()) {
+        echo "Fast Pings are not enabled for cron scheduling.  Add the -f command argument if you want to force this command to run.\n";
+    }
+    exit(0);
 }
 
-if (isset($options['r'])) {
-    Config::set('norrd', true);
-}
+Debug::set(isset($options['d']));
+Debug::setVerbose(isset($options['v']));
+
+Datastore::init($options);
 
 if (isset($options['g'])) {
     $groups = explode(',', $options['g']);
@@ -37,14 +41,4 @@ if (isset($options['g'])) {
     $groups = [];
 }
 
-if (Config::get('base_url') !== true && \LibreNMS\Config::get('influxdb.enable') === true) {
-    $influxdb = influxdb_connect();
-} else {
-    $influxdb = false;
-}
-
-rrdtool_initialize();
-
-PingCheck::dispatch($groups);
-
-rrdtool_close();
+PingCheck::dispatchSync($groups);

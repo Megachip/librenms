@@ -1,6 +1,3 @@
-source: Extensions/Dashboards.md
-path: blob/master/doc/
-
 # Dashboards
 
 Create customised dashboards in LibreNMS per user. You can share
@@ -8,7 +5,7 @@ dashboards with other users. You can also make a custom dashboard and
 default it for all users in LibreNMS.
 
 Example Dashboard
-![Example Dashboard](/img/example-dashboard.png)
+![Example Dashboard](../img/example-dashboard.png)
 
 ## Widgets
 
@@ -16,10 +13,10 @@ LibreNMS has a whole list of Widgets to select from.
 
 - Alerts Widget: Displays all alert notifications.
 - Availability Map: Displays all devices with colored tiles, green up,
-  yellow for warning (device has been restarted in last 24 hours),red
+  yellow for warning (device has been restarted in last 24 hours), red
   for down. You can also list all services and ignored/disabled
-  devcies in this widget.
-- Componet Status: List all componets Ok state, Warning state, Critical state.
+  devices in this widget.
+- Components Status: List all components Ok state, Warning state, Critical state.
 - Device Summary horizontal: List device totals, up, down, ignored,
   disabled. Same for ports and services.
 - Device Summary vertical: List device totals, up, down, ignored,
@@ -36,22 +33,24 @@ LibreNMS has a whole list of Widgets to select from.
   usage. Note the device type has to be listed as "Server".
 - Syslog: Displays all syslog entries.
 - Top Devices: By Traffic, or  Uptime, or Response time, or Poller
-  Duration, or Procssor load, or Memory Usage, or Storage Usage.
+  Duration, or Processor load, or Memory Usage, or Storage Usage.
 - Top Interfaces: Lists top interfaces by traffic utilization.
-- Worldmap: displays all your devices locations. From syslocation or
+- World Map: displays all your devices locations. From syslocation or
   from override sysLocation.
 
 List of Widgets:
-![List of Widgets][image of widgets]
 
-[image of widgets]: /img/list-widgets.png "List of the widgets"
+![List of Widgets][image of widgets]  
+[image of widgets]: ../img/list-widgets.png "List of the widgets"
 
 ## Dashboard Permissions
 
-- Private: Sets the dashabord to only the user that created the
+- Private: Sets the dashboard to only the user that created the
   dashboard can view and edit.
 - Shared Read: Sets the dashboard to allow other users to view the
-  dashboard, but cant make changes to the dashboard.
+  dashboard, but can't make changes to the dashboard.
+- Shared Admin RW: Sets the dashboard to allow other users to view
+  the dashboard, but allows Admins to makes changes.
 - Shared: Allows all users to view the dashboard and make changes.
 
 ## Setting a global default dashboard
@@ -62,7 +61,7 @@ on what you want the users access to change.
 Step 2: Then go to Settings -> WebUI settings -> Dashboard Settings
 and set the global default dashboard.
 
-## Setting embeded webpage
+## Setting embedded webpage
 
 Using the Notes Widget.
 
@@ -74,28 +73,28 @@ Using the Notes Widget.
 
 Note you may need to play with the width and height and also size your widget properly.
 
-``` src="url" ``` needs to be URL to webpage your linking to.
-Also some web pages may not support html embeded or iframe.
-![Example embed webpage](/img/example-embed-website.png)
+``` src="url" ``` needs to be URL to webpage you are linking to.
+Also some web pages may not support html embedded or iframe.
+![Example embed webpage](../img/example-embed-website.png)
 
 ## How to create ports graph
 
 In the dashboard, you want to create an interface graph select the widget called
 
-'Graph' then select "Port" "Bits"
-![port-bits-graph](/img/port-bits-graph.png)
+'Graph' then select "Port" -> "Bits"
+![port-bits-graph](../img/port-bits-graph.png)
 
 Note: you can map the port by description or the alias or by port
 id. You will need to know this in order to map the port to the graph.
 
-![port-bits-graph](/img/port-bits-port.png)
+![port-bits-graph](../img/port-bits-port.png)
 
 ## Dimension parameter replacement for Generic-image widget
 
 When using the Generic-image widget you can provide the width and
 height of the widget with your request. This will ensure that the
 image will fit nicely with the dimensions if the Generic-image widget.
-You can add @AUTO_HEIGHT@ and @AUTO_WIDTH@ to the Image URL as parameters.
+You can add `@AUTO_HEIGHT@` and `@AUTO_WIDTH@` to the Image URL as parameters.
 
 Examples:
 

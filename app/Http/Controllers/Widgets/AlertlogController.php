@@ -1,4 +1,5 @@
 <?php
+
 /**
  * AlertlogController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -33,15 +34,16 @@ class AlertlogController extends WidgetController
     protected $defaults = [
         'title' => null,
         'device_id' => '',
+        'device_group' => null,
         'state' => -1,
-        'min_severity' => null
+        'min_severity' => null,
+        'hidenavigation' => 0,
     ];
 
     public function getView(Request $request)
     {
         return view('widgets.alertlog', $this->getSettings());
     }
-
 
     public function getSettingsView(Request $request)
     {
@@ -55,6 +57,7 @@ class AlertlogController extends WidgetController
             'warning only' => 5,
             'critical only' => 6,
         ];
+
         return view('widgets.settings.alertlog', $data);
     }
 }

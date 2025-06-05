@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Clean.php
  *
@@ -15,19 +16,18 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace LibreNMS\Util;
 
-use HTMLPurifier;
-use HTMLPurifier_Config;
 use LibreNMS\Config;
+use Mews\Purifier\Facades\Purifier;
 
 class Clean
 {
@@ -35,18 +35,18 @@ class Clean
      * Sanitize file name by removing all invalid characters.
      * Does not make the string safe for javascript or sql!
      *
-     * @param string $file
+     * @param  string  $file
      * @return string|string[]|null
      */
     public static function fileName($file)
     {
-        return preg_replace('/[^a-zA-Z0-9\-._]/', '', $file);
+        return preg_replace('/[^a-zA-Z0-9\-._]/', '', $file ?? '');
     }
 
     /**
      * Sanitize string to only contain alpha, numeric, dashes, and underscores
      *
-     * @param string $string
+     * @param  string  $string
      * @return string
      */
     public static function alphaDash($string)
@@ -55,28 +55,18 @@ class Clean
     }
 
     /**
-     * Sanitize string to only contain alpha, numeric, dashes, underscores, and spaces
-     *
-     * @param string $string
-     * @return string
-     */
-    public static function alphaDashSpace($string)
-    {
-        return preg_replace('/[^a-zA-Z0-9\-_ ]/', '', $string);
-    }
-
-    /**
      * Clean a string for display in an html page.
      * For use in non-blade pages
      *
-     * @param $value
-     * @param array $purifier_config (key, value pair)
+     * @param  string|null  $value
+     * @param  array<string, mixed>  $purifier_config
      * @return string
      */
-    public static function html($value, $purifier_config = [])
+    public static function html(?string $value, array $purifier_config = []): string
     {
-        /** @var HTMLPurifier $purifier */
-        static $purifier;
+        if (empty($value)) {
+            return '';
+        }
 
         // If $purifier_config is non-empty then we don't want
         // to convert html tags and allow these to be controlled
@@ -85,16 +75,6 @@ class Clean
             $value = htmlentities($value);
         }
 
-        if (!isset($purifier)) {
-            // initialize HTML Purifier here since this is the only user
-            $p_config = HTMLPurifier_Config::createDefault();
-            $p_config->set('Cache.SerializerPath', Config::get('temp_dir', '/tmp'));
-            foreach ($purifier_config as $k => $v) {
-                $p_config->set($k, $v);
-            }
-            $purifier = new HTMLPurifier($p_config);
-        }
-
-        return $purifier->purify(stripslashes($value));
+        return Purifier::clean(stripslashes($value), $purifier_config);
     }
 }

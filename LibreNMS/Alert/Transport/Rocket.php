@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2014 Daniel Preussker <f0o@devilcode.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,70 +12,56 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * API Transport
+ *
  * @author ToeiRei <vbauer@stargazer.at>
  * @copyright 2017 ToeiRei, LibreNMS work based on the work of f0o. It's his work.
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 class Rocket extends Transport
 {
-    public function deliverAlert($obj, $opts)
+    protected string $name = 'Rocket Chat';
+
+    public function deliverAlert(array $alert_data): bool
     {
         $rocket_opts = $this->parseUserOptions($this->config['rocket-options']);
-        $rocket_opts['url'] = $this->config['rocket-url'];
 
-        return $this->contactRocket($obj, $rocket_opts);
-    }
-
-    public static function contactRocket($obj, $api)
-    {
-        $host          = $api['url'];
-        $curl          = curl_init();
-        $rocket_msg    = strip_tags($obj['msg']);
-        $color         = self::getColorForState($obj['state']);
-        $data          = array(
-            'attachments' => array(
-                0 => array(
+        $rocket_msg = strip_tags($alert_data['msg']);
+        $data = [
+            'attachments' => [
+                0 => [
                     'fallback' => $rocket_msg,
-                    'color' => $color,
-                    'title' => $obj['title'],
+                    'color' => self::getColorForState($alert_data['state']),
+                    'title' => $alert_data['title'],
                     'text' => $rocket_msg,
-                )
-            ),
-            'channel' => $api['channel'],
-            'username' => $api['username'],
-            'icon_url' => $api['icon_url'],
-            'icon_emoji' => $api['icon_emoji'],
-        );
-        $alert_message = json_encode($data);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
-        set_curl_proxy($curl);
-        curl_setopt($curl, CURLOPT_URL, $host);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $alert_message);
+                ],
+            ],
+            'channel' => $rocket_opts['channel'] ?? null,
+            'username' => $rocket_opts['username'] ?? null,
+            'icon_url' => $rocket_opts['icon_url'] ?? null,
+            'icon_emoji' => $rocket_opts['icon_emoji'] ?? null,
+        ];
 
-        $ret  = curl_exec($curl);
-        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($code != 200) {
-            var_dump("API '$host' returned Error"); //FIXME: propper debuging
-            var_dump("Params: " . $alert_message); //FIXME: propper debuging
-            var_dump("Return: " . $ret); //FIXME: propper debuging
-            return 'HTTP Status code ' . $code;
+        $res = Http::client()->post($this->config['rocket-url'], $data);
+
+        if ($res->successful()) {
+            return true;
         }
-        return true;
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $rocket_msg, $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -89,11 +76,11 @@ class Rocket extends Transport
                     'name' => 'rocket-options',
                     'descr' => 'Rocket.chat Options',
                     'type' => 'textarea',
-                ]
+                ],
             ],
             'validation' => [
                 'rocket-url' => 'required|url',
-            ]
+            ],
         ];
     }
 }

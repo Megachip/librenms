@@ -3,17 +3,20 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class AlertsDisableOnUpdateCurrentTimestamp extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
-        \DB::statement("ALTER TABLE `alerts` CHANGE `timestamp` `timestamp` timestamp NOT NULL default CURRENT_TIMESTAMP;");
+        if (LibreNMS\DB\Eloquent::getDriver() == 'mysql') {
+            Schema::table('alerts', function (Blueprint $table) {
+                DB::statement('ALTER TABLE `alerts` CHANGE `timestamp` `timestamp` timestamp NOT NULL default CURRENT_TIMESTAMP;');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,12 @@ class AlertsDisableOnUpdateCurrentTimestamp extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
-        \DB::statement("ALTER TABLE `alerts` CHANGE `timestamp` `timestamp` timestamp NOT NULL default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP;");
+        if (LibreNMS\DB\Eloquent::getDriver() == 'mysql') {
+            Schema::table('alerts', function (Blueprint $table) {
+                DB::statement('ALTER TABLE `alerts` CHANGE `timestamp` `timestamp` timestamp NOT NULL default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP;');
+            });
+        }
     }
-}
+};

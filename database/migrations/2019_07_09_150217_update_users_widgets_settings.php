@@ -1,25 +1,23 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Database\Migrations\Migration;
 use App\Models\UserWidget;
+use Illuminate\Database\Migrations\Migration;
 
-class UpdateUsersWidgetsSettings extends Migration
+return new class extends Migration
 {
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         $widgets = UserWidget::where('widget_id', 1)->get();
         foreach ($widgets as $widget) {
             $settings = $widget->settings;
 
-            $settings["device_group"] = $settings["group"];
-            unset($settings["group"]);
+            $settings['device_group'] = $settings['group'];
+            unset($settings['group']);
 
             $widget->settings = $settings;
             $widget->save();
@@ -31,17 +29,17 @@ class UpdateUsersWidgetsSettings extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         $widgets = UserWidget::where('widget_id', 1)->get();
         foreach ($widgets as $widget) {
             $settings = $widget->settings;
 
-            $settings["group"] = $settings["device_group"];
-            unset($settings["device_group"]);
+            $settings['group'] = $settings['device_group'];
+            unset($settings['device_group']);
 
             $widget->settings = $settings;
             $widget->save();
         }
     }
-}
+};

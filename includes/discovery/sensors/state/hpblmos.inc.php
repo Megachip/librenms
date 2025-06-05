@@ -10,14 +10,14 @@ $fans = trim(snmp_walk($device, $fans_oid, '-Osqn'));
 foreach (explode("\n", $fans) as $fan) {
     $fan = trim($fan);
     if ($fan) {
-        list($oid, $presence) = explode(' ', $fan, 2);
+        [$oid, $presence] = explode(' ', $fan, 2);
         if ($presence != 2) {
             $split_oid = explode('.', $oid);
-            $current_id = $split_oid[(count($split_oid) - 1)];
-            $current_oid = $fan_state_oid.$current_id;
-            $descr = $fan_state_descr.$current_id;
+            $current_id = $split_oid[count($split_oid) - 1];
+            $current_oid = $fan_state_oid . $current_id;
+            $descr = $fan_state_descr . $current_id;
             $state = snmp_get($device, $current_oid, '-Oqv');
-            if (!empty($state)) {
+            if (! empty($state)) {
                 $states = [
                     ['value' => 1, 'generic' => 3, 'graph' => 0, 'descr' => 'other'],
                     ['value' => 2, 'generic' => 0, 'graph' => 1, 'descr' => 'ok'],
@@ -26,8 +26,7 @@ foreach (explode("\n", $fans) as $fan) {
                 ];
                 create_state_index($state_name, $states);
             }
-            discover_sensor($valid['sensor'], 'state', $device, $current_oid, $current_id, $fan_state_name, $descr, 1, 1, null, null, null, null, $state, 'snmp', $current_id);
-            create_sensor_to_state_index($device, $fan_state_name, $current_id);
+            discover_sensor(null, 'state', $device, $current_oid, $current_id, $fan_state_name, $descr, 1, 1, null, null, null, null, $state, 'snmp', $current_id);
         }
     }
 }
@@ -42,14 +41,14 @@ $psus = trim(snmp_walk($device, $psu_oid, '-Osqn'));
 foreach (explode("\n", $psus) as $psu) {
     $psu = trim($psu);
     if ($psu) {
-        list($oid, $presence) = explode(' ', $psu, 2);
+        [$oid, $presence] = explode(' ', $psu, 2);
         if ($presence != 2) {
             $split_oid = explode('.', $oid);
-            $current_id = $split_oid[(count($split_oid) - 1)];
-            $current_oid = $psu_state_oid.$current_id;
-            $descr = $psu_state_descr.$current_id;
+            $current_id = $split_oid[count($split_oid) - 1];
+            $current_oid = $psu_state_oid . $current_id;
+            $descr = $psu_state_descr . $current_id;
             $state = snmp_get($device, $current_oid, '-Oqv');
-            if (!empty($state)) {
+            if (! empty($state)) {
                 $states = [
                     ['value' => 1, 'generic' => 3, 'graph' => 0, 'descr' => 'other'],
                     ['value' => 2, 'generic' => 0, 'graph' => 1, 'descr' => 'ok'],
@@ -58,8 +57,7 @@ foreach (explode("\n", $psus) as $psu) {
                 ];
                 create_state_index($state_name, $states);
             }
-            discover_sensor($valid['sensor'], 'state', $device, $current_oid, $current_id, $psu_state_name, $descr, 1, 1, null, null, null, null, $state, 'snmp', $current_id);
-            create_sensor_to_state_index($device, $psu_state_name, $current_id);
+            discover_sensor(null, 'state', $device, $current_oid, $current_id, $psu_state_name, $descr, 1, 1, null, null, null, null, $state, 'snmp', $current_id);
         }
     }
 }

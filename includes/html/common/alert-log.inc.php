@@ -1,4 +1,5 @@
 <?php
+
 /*
 * This program is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -8,34 +9,39 @@
 *
 * @package    LibreNMS
 * @subpackage graphs
-* @link       http://librenms.org
+* @link       https://www.librenms.org
 * @copyright  2017 LibreNMS
 * @author     LibreNMS Contributors
 */
 
-$param = array();
+$param = [];
 
 $pagetitle[] = 'Alert Log';
 
-$alert_states = array(
+$alert_states = [
     // divined from librenms/alerts.php
     'Any' => -1,
     'Ok (recovered)' => 0,
     'Alert' => 1,
-//    'Acknowledged' => 2,
+    //    'Acknowledged' => 2,
     'Worse' => 3,
     'Better' => 4,
-);
+    'Changed' => 5,
+];
 
-$alert_severities = array(
+$alert_severities = [
     // alert_rules.status is enum('ok','warning','critical')
     'Any' => '',
     'Ok, warning and critical' => 1,
     'Warning and critical' => 2,
     'Critical' => 3,
     'OK' => 4,
-    'Warning' => 5
-);
+    'Warning' => 5,
+];
+
+if (Auth::user()->hasGlobalAdmin()) {
+    $admin_verbose_details = '<th data-column-id="verbose_details" data-sortable="false">Details</th>';
+}
 
 $common_output[] = '<div class="panel panel-default panel-condensed">
                 <div class="panel-heading">
@@ -50,23 +56,19 @@ $common_output[] = '<div class="panel panel-default panel-condensed">
                 </div>
             ';
 
-if (isset($_POST['device_id'])) {
-    $selected_device = '<option value="' . (int)$_POST['device_id'] . '" selected="selected">';
-    $selected_device .= htmlentities($_POST['hostname']) . '</option>';
-} else {
-    $selected_device = $device_id;
-    $_POST['device_id'] = $device_id;
-}
+$device = DeviceCache::get((int) $vars['device_id']);
+$device_selected = json_encode($device->exists ? ['id' => $device->device_id, 'text' => $device->displayName()] : '');
+
 if (isset($_POST['state'])) {
-    $selected_state = '<option value="' . $_POST['state'] . '" selected="selected">';
-    $selected_state .= array_search((int)$_POST['state'], $alert_states) . '</option>';
+    $selected_state = '<option value="' . htmlspecialchars($_POST['state']) . '" selected="selected">';
+    $selected_state .= array_search((int) $_POST['state'], $alert_states) . '</option>';
 } else {
     $selected_state = '';
     $_POST['state'] = -1;
 }
 if (isset($_POST['min_severity'])) {
-    $selected_min_severity = '<option value="' . $_POST['min_severity'] . '" selected="selected">';
-    $selected_min_severity .= array_search((int)$_POST['min_severity'], $alert_severities) . '</option>';
+    $selected_min_severity = '<option value="' . htmlspecialchars($_POST['min_severity']) . '" selected="selected">';
+    $selected_min_severity .= array_search((int) $_POST['min_severity'], $alert_severities) . '</option>';
 } else {
     $selected_min_severity = '';
     $_POST['min_severity'] = '';
@@ -77,11 +79,13 @@ $common_output[] = '
     <table id="alertlog" class="table table-hover table-condensed table-striped">
         <thead>
         <tr>
-            <th data-column-id="status" data-sortable="false"></th>
+            <th data-column-id="status" data-sortable="false">State</th>
             <th data-column-id="time_logged" data-order="desc">Timestamp</th>
             <th data-column-id="details" data-sortable="false">&nbsp;</th>
             <th data-column-id="hostname">Device</th>
             <th data-column-id="alert">Alert</th>
+            <th data-column-id="severity">Severity</th>
+            ' . $admin_verbose_details . '
         </tr>
         </thead>
     </table>
@@ -101,14 +105,12 @@ $common_output[] = '
             <input type=hidden name="hostname" id="hostname"> \
 ';
 
-if (isset($vars['fromdevice']) && !$vars['fromdevice']) {
+if (isset($vars['fromdevice']) && ! $vars['fromdevice']) {
     $common_output[] = '<div class="form-group"> \
                 <label> \
                 <strong>Device&nbsp;</strong> \
                 </label> \
-                <select name="device_id" id="device_id" class="form-control input-sm" style="min-width: 175px;"> \
-                ' . $selected_device. ' \
-               </select> \
+                <select name="device_id" id="device_id" class="form-control input-sm" style="min-width: 175px;"></select> \
                </div> \
                ';
 }
@@ -118,12 +120,13 @@ $common_output[] = '<div class="form-group"> \
                <strong>&nbsp;State&nbsp;</strong> \
                </label> \
                <select name="state" id="state" class="form-control input-sm"> \
-                $common_output[] = ' . $selected_state. ' \
+                $common_output[] = ' . $selected_state . ' \
                <option value="-1">Any</option> \
                <option value="0">Ok (recovered)</option> \
                <option value="1">Alert</option> \
                <option value="3">Worse</option> \
                <option value="4">Better</option> \
+               <option value="5">Changed</option> \
                </select> \
                </div> \
                <div class="form-group"> \
@@ -131,7 +134,7 @@ $common_output[] = '<div class="form-group"> \
                <strong>&nbsp;Severity&nbsp;</strong> \
                </label> \
                <select name="min_severity" id="min_severity" class="form-control input-sm"> \
-                ' . $selected_min_severity. ' \
+                ' . $selected_min_severity . ' \
                <option value>Any</option> \
                <option value="3">Critical</option> \
                <option value="5">Warning</option> \
@@ -147,9 +150,9 @@ $common_output[] = '<div class="form-group"> \
         post: function () {
             return {
                 id: "alertlog",
-                device_id: \'' . htmlspecialchars($_POST['device_id']). '\',
-                state: \'' . htmlspecialchars($_POST['state']). '\',
-                min_severity: \'' . htmlspecialchars($_POST['min_severity']). '\'
+                device_id: \'' . htmlspecialchars($_POST['device_id'] ?? $device_id) . '\',
+                state: \'' . htmlspecialchars($_POST['state']) . '\',
+                min_severity: \'' . htmlspecialchars($_POST['min_severity']) . '\'
             };
         },
         url: "ajax_table.php"
@@ -161,7 +164,7 @@ $common_output[] = '<div class="form-group"> \
         max = high - low;
         search = $(\'.search-field\').val();
 
-        $(".pdf-export").html("<a href=\'pdf.php?report=alert-log&device_id=' . $_POST['device_id']. '&string=" + search + "&results=" + max + "&start=" + low + "\'><i class=\'fa fa-heartbeat fa-lg icon-theme\' aria-hidden=\'true\'></i> Export to pdf</a>");
+        $(".pdf-export").html("<a href=\'pdf.php?report=alert-log&device_id=' . htmlspecialchars($_POST['device_id']) . '&string=" + search + "&results=" + max + "&start=" + low + "\'><i class=\'fa fa-file-pdf-o fa-lg icon-theme\' aria-hidden=\'true\'></i> Export to PDF</a>");
 
         grid.find(".incident-toggle").each(function () {
             $(this).parent().addClass(\'incident-toggle-td\');
@@ -170,12 +173,27 @@ $common_output[] = '<div class="form-group"> \
             $(target).collapse(\'toggle\');
             $(this).toggleClass(\'fa-plus fa-minus\');
         });
+        grid.find(".verbose-alert-details").on("click", function(e) {
+            e.preventDefault();
+            var alert_log_id = $(this).data(\'alert_log_id\');
+            $(\'#alert_log_id\').val(alert_log_id);
+            $("#alert_details_modal").modal(\'show\');
+        });
         grid.find(".incident").each(function () {
             $(this).parent().addClass(\'col-lg-4 col-md-4 col-sm-4 col-xs-4\');
+            if ($(this).parent().parent().find(".alert-status").hasClass(\'label-danger\')){
+                $(this).parent().parent().find(".verbose-alert-details").fadeIn(0);
+            }
             $(this).parent().parent().on("mouseenter", function () {
                 $(this).find(".incident-toggle").fadeIn(200);
+                if ($(this).find(".alert-status").hasClass(\'label-danger\')){
+                    $(this).find(".command-alert-details").fadeIn(200);
+                }
             }).on("mouseleave", function () {
                 $(this).find(".incident-toggle").fadeOut(200);
+                if ($(this).find(".alert-status").hasClass(\'label-danger\')){
+                    $(this).find(".command-alert-details").fadeOut(200);
+                }
             }).on("click", "td:not(.incident-toggle-td)", function () {
                 var target = $(this).parent().find(".incident-toggle").data("target");
                 if ($(this).parent().find(".incident-toggle").hasClass(\'fa-plus\')) {
@@ -186,23 +204,6 @@ $common_output[] = '<div class="form-group"> \
         });
     });
 
-    $("#device_id").select2({
-        allowClear: true,
-        placeholder: "All Devices",
-        ajax: {
-            url: \'ajax_list.php\',
-            delay: 250,
-            data: function (params) {
-                return {
-                    type: \'devices\',
-                    search: params.term,
-                    limit: 8,
-                    page: params.page || 1
-                };
-            }
-        }
-    }).on(\'select2:select\', function (e) {
-        $(\'#hostname\').val(e.params.data.text);
-    });
+    init_select2("#device_id", "device", {}, ' . $device_selected . ' , "All Devices");
 </script>
 ';

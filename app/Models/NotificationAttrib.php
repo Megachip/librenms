@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotificationAttrib extends Model
 {
@@ -12,20 +13,19 @@ class NotificationAttrib extends Model
     protected $fillable = ['notifications_id', 'user_id', 'key', 'value'];
 
     // ---- Define Relationships ----
-
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, $this>
      */
-    public function user()
+    public function user(): BelongsTo
     {
-        return $this->belongsTo('App\Models\User', 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\Notification, $this>
      */
-    public function notification()
+    public function notification(): BelongsTo
     {
-        return $this->belongsTo('App\Models\Notification', 'notifications_id');
+        return $this->belongsTo(Notification::class, 'notifications_id');
     }
 }

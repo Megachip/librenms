@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ModuleTester.php
  *
@@ -15,29 +16,33 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
 
 namespace LibreNMS\Util;
 
+use App\Actions\Device\ValidateDeviceAndCreate;
+use App\Jobs\PollDevice;
+use App\Models\Device;
+use DeviceCache;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use LibreNMS\Config;
+use LibreNMS\Data\Source\SnmpResponse;
 use LibreNMS\Exceptions\FileNotFoundException;
 use LibreNMS\Exceptions\InvalidModuleException;
-use Symfony\Component\Yaml\Yaml;
 
 class ModuleTestHelper
 {
-    private static $module_tables;
-
     private $quiet = false;
     private $modules;
     private $variant;
-    private $os;
     private $snmprec_file;
     private $json_file;
     private $snmprec_dir;
@@ -50,31 +55,20 @@ class ModuleTestHelper
 
     // Definitions
     // ignore these when dumping all modules
-    private $exclude_from_all = ['arp-table', 'fdb-table'];
-    private static $module_deps = [
-        'arp-table' => ['ports', 'arp-table'],
-        'fdb-table' => ['ports', 'vlans', 'fdb-table'],
-        'vlans' => ['ports', 'vlans'],
-        'vrf' => ['ports', 'vrf'],
-        'mpls' => ['ports', 'vrf', 'mpls'],
-        'nac' => ['ports', 'nac'],
-        'cisco-mac-accounting' => ['ports', 'cisco-mac-accounting'],
-    ];
-
+    private $exclude_from_all = ['arp-table', 'availability', 'fdb-table'];
 
     /**
      * ModuleTester constructor.
-     * @param array|string $modules
-     * @param string $os
-     * @param string $variant
+     *
+     * @param  array|string  $modules
+     * @param  string  $os
+     * @param  string  $variant
+     *
      * @throws InvalidModuleException
      */
     public function __construct($modules, $os, $variant = '')
     {
-        global $influxdb;
-
-        $this->modules = self::resolveModuleDependencies((array)$modules);
-        $this->os = strtolower($os);
+        $this->modules = self::resolveModuleDependencies((array) $modules);
         $this->variant = strtolower($variant);
 
         // preset the file names
@@ -84,21 +78,17 @@ class ModuleTestHelper
         $install_dir = Config::get('install_dir');
         $this->file_name = $os . $variant;
         $this->snmprec_dir = "$install_dir/tests/snmpsim/";
-        $this->snmprec_file = $this->snmprec_dir . $this->file_name . ".snmprec";
+        $this->snmprec_file = $this->snmprec_dir . $this->file_name . '.snmprec';
         $this->json_dir = "$install_dir/tests/data/";
-        $this->json_file = $this->json_dir . $this->file_name . ".json";
+        $this->json_file = $this->json_dir . $this->file_name . '.json';
 
         // never store time series data
-        Config::set('norrd', true);
+        Config::set('rrd.enable', false);
         Config::set('hide_rrd_disabled', true);
-        Config::set('noinfluxdb', true);
-        $influxdb = false;
-        Config::set('nographite', true);
-
-        if (is_null(self::$module_tables)) {
-            // only load the yaml once, then keep it in memory
-            self::$module_tables = Yaml::parse(file_get_contents($install_dir . '/tests/module_tables.yaml'));
-        }
+        Config::set('influxdb.enable', false);
+        Config::set('influxdbv2.enable', false);
+        Config::set('graphite.enable', false);
+        Config::set('prometheus.enable', false);
     }
 
     private static function compareOid($a, $b)
@@ -137,51 +127,61 @@ class ModuleTestHelper
         $this->json_file = $path;
     }
 
-    public function captureFromDevice($device_id, $write = true, $prefer_new = false)
+    public function captureFromDevice(int $device_id, bool $prefer_new = false, bool $full = false): void
     {
-        $snmp_oids = $this->collectOids($device_id);
-
-        $device = device_by_id_cache($device_id, true);
-
-        $snmprec_data = [];
-        foreach ($snmp_oids as $oid_data) {
-            $this->qPrint(" " . $oid_data['oid']);
-
-            $snmp_options = ['-OUneb', '-Ih'];
-            if ($oid_data['method'] == 'walk') {
-                $data = snmp_walk($device, $oid_data['oid'], $snmp_options, $oid_data['mib'], $oid_data['mibdir']);
-            } elseif ($oid_data['method'] == 'get') {
-                $data = snmp_get($device, $oid_data['oid'], $snmp_options, $oid_data['mib'], $oid_data['mibdir']);
-            } elseif ($oid_data['method'] == 'getnext') {
-                $data = snmp_getnext($device, $oid_data['oid'], $snmp_options, $oid_data['mib'], $oid_data['mibdir']);
-            }
-
-            if (isset($data) && $data !== false) {
-                $snmprec_data[] = $this->convertSnmpToSnmprec($data);
-            }
+        if ($full) {
+            $snmp_oids[][] = [
+                'oid' => '.',
+                'method' => 'walk',
+                'mib' => null,
+                'mibdir' => null,
+            ];
+        } else {
+            $snmp_oids = $this->collectOids($device_id);
         }
 
-        $this->qPrint(PHP_EOL);
+        DeviceCache::setPrimary($device_id);
 
-        return $this->saveSnmprec($snmprec_data, $write, $prefer_new);
+        foreach ($snmp_oids as $context => $context_oids) {
+            $snmprec_data = [];
+            foreach ($context_oids as $oid_data) {
+                $this->qPrint(' ' . $oid_data['oid']);
+
+                $snmp_options = ['-OUneb', '-Ih', '-m', '+' . $oid_data['mib']];
+                if ($oid_data['method'] == 'walk') {
+                    $data = \SnmpQuery::options($snmp_options)->context($context)->mibDir($oid_data['mibdir'] ?? null)->walk($oid_data['oid']);
+                } elseif ($oid_data['method'] == 'get') {
+                    $data = \SnmpQuery::options($snmp_options)->context($context)->mibDir($oid_data['mibdir'] ?? null)->get($oid_data['oid']);
+                } elseif ($oid_data['method'] == 'getnext') {
+                    $data = \SnmpQuery::options($snmp_options)->context($context)->mibDir($oid_data['mibdir'] ?? null)->next($oid_data['oid']);
+                }
+
+                if (isset($data) && $data->getExitCode() === 0) {
+                    $snmprec_data[] = $this->convertSnmpToSnmprec($data);
+                }
+            }
+
+            $this->saveSnmprec($snmprec_data, $context, true, $prefer_new);
+        }
     }
 
     private function collectOids($device_id)
     {
-        global $debug, $vdebug, $device;
+        global $device;
 
         $device = device_by_id_cache($device_id);
+        DeviceCache::setPrimary($device_id);
 
         // Run discovery
         ob_start();
-        $save_debug = $debug;
-        $save_vedbug = $vdebug;
-        $debug = true;
-        $vdebug = false;
+        $save_debug = Debug::isEnabled();
+        $save_vdebug = Debug::isVerbose();
+        Debug::set();
+        Debug::setVerbose();
         discover_device($device, $this->parseArgs('discovery'));
-        poll_device($device, $this->parseArgs('poller'));
-        $debug = $save_debug;
-        $vdebug = $save_vedbug;
+        (new PollDevice($device_id, $this->modules))->handle();
+        Debug::set($save_debug);
+        Debug::setVerbose($save_vdebug);
         $collection_output = ob_get_contents();
         ob_end_clean();
 
@@ -192,24 +192,28 @@ class ModuleTestHelper
         $collection_output = preg_replace('/\033\[[\d;]+m/', '', $collection_output);
 
         // extract snmp queries
-        $snmp_query_regex = '/SNMP\[.*snmp(?:bulk)?([a-z]+)\' .+:HOSTNAME:[0-9]+\' \'(.+)\'\]/';
+        $snmp_query_regex = '/SNMP\[\'.*snmp(?:bulk)?(walk|get|getnext)\' .+\'(udp|tcp|tcp6|udp6):(?:\[[0-9a-f:]+\]|[^:]+):[0-9]+\' \'(.+)\'\]/m';
         preg_match_all($snmp_query_regex, $collection_output, $snmp_matches);
 
         // extract mibs and group with oids
         $snmp_oids = [
-            'sysDescr.0_get' => ['oid' => 'sysDescr.0', 'mib' => 'SNMPv2-MIB', 'method' => 'get'],
-            'sysObjectID.0_get' => ['oid' => 'sysObjectID.0', 'mib' => 'SNMPv2-MIB', 'method' => 'get'],
+            null => [
+                'sysDescr.0_get' => ['oid' => 'sysDescr.0', 'mib' => 'SNMPv2-MIB', 'method' => 'get'],
+                'sysObjectID.0_get' => ['oid' => 'sysObjectID.0', 'mib' => 'SNMPv2-MIB', 'method' => 'get'],
+            ],
         ];
         foreach ($snmp_matches[0] as $index => $line) {
             preg_match("/'-m' '\+?([a-zA-Z0-9:\-]+)'/", $line, $mib_matches);
-            $mib = $mib_matches[1];
+            $mib = $mib_matches[1] ?? null;
             preg_match("/'-M' '\+?([a-zA-Z0-9:\-\/]+)'/", $line, $mibdir_matches);
             $mibdir = $mibdir_matches[1];
             $method = $snmp_matches[1][$index];
-            $oids = explode("' '", trim($snmp_matches[2][$index]));
+            $oids = explode("' '", trim($snmp_matches[3][$index]));
+            preg_match("/('-c' '.*@([^']+)'|'-n' '([^']+)')/", $line, $context_matches);
+            $context = $context_matches[2] ?? $context_matches[3] ?? null;
 
             foreach ($oids as $oid) {
-                $snmp_oids["{$oid}_$method"] = [
+                $snmp_oids[$context]["{$oid}_$method"] = [
                     'oid' => $oid,
                     'mib' => $mib,
                     'mibdir' => $mibdir,
@@ -218,7 +222,7 @@ class ModuleTestHelper
             }
         }
 
-        d_echo("OIDs to capture ");
+        d_echo('OIDs to capture ');
         d_echo($snmp_oids);
 
         return $snmp_oids;
@@ -231,25 +235,32 @@ class ModuleTestHelper
      * Each entry contains [$os, $variant, $valid_modules]
      * $valid_modules is an array of selected modules this os has test data for
      *
-     * @param array $modules
+     * @param  array  $modules
      * @return array
+     *
      * @throws InvalidModuleException
      */
-    public static function findOsWithData($modules = [])
+    public static function findOsWithData($modules = [], ?string $os_filter = null)
     {
         $os_list = [];
 
-        foreach (glob(Config::get('install_dir') . "/tests/data/*.json") as $file) {
+        foreach (glob(Config::get('install_dir') . '/tests/data/*.json') as $file) {
             $base_name = basename($file, '.json');
-            list($os, $variant) = self::extractVariant($file);
+            [$os, $variant] = self::extractVariant($file);
+
+            if ($os_filter != '' && $os_filter != $os) {
+                continue;
+            }
 
             // calculate valid modules
-            $data_modules = array_keys(json_decode(file_get_contents($file), true));
+            $decoded = json_decode(file_get_contents($file), true);
 
             if (json_last_error()) {
                 echo "Invalid json data: $base_name\n";
                 exit(1);
             }
+
+            $data_modules = array_keys($decoded);
 
             if (empty($modules)) {
                 $valid_modules = $data_modules;
@@ -268,7 +279,7 @@ class ModuleTestHelper
                     self::resolveModuleDependencies($valid_modules),
                 ];
             } catch (InvalidModuleException $e) {
-                throw new InvalidModuleException("Invalid module " . $e->getMessage() . " in $os $variant");
+                throw new InvalidModuleException('Invalid module ' . $e->getMessage() . " in $os $variant");
             }
         }
 
@@ -278,19 +289,20 @@ class ModuleTestHelper
     /**
      * Given a json filename or basename, extract os and variant
      *
-     * @param string $os_file Either a filename or the basename
+     * @param  string  $os_file  Either a filename or the basename
      * @return array [$os, $variant]
      */
     public static function extractVariant($os_file)
     {
         $full_name = basename($os_file, '.json');
 
-        if (!str_contains($full_name, '_')) {
+        if (! Str::contains($full_name, '_')) {
             return [$full_name, ''];
-        } elseif (is_file(Config::get('install_dir') . "/includes/definitions/$full_name.yaml")) {
+        } elseif (is_file(resource_path("definitions/os_detection/$full_name.yaml"))) {
             return [$full_name, ''];
         } else {
-            list($rvar, $ros) = explode('_', strrev($full_name), 2);
+            [$rvar, $ros] = explode('_', strrev($full_name), 2);
+
             return [strrev($ros), strrev($rvar)];
         }
     }
@@ -299,28 +311,31 @@ class ModuleTestHelper
      * Generate a module list.  Try to take dependencies into account.
      * Probably needs to be more robust
      *
-     * @param array $modules
-     * @return array
+     * @param  array  $modules
+     * @return array<string, bool|string[]>
+     *
      * @throws InvalidModuleException
      */
-    private static function resolveModuleDependencies($modules)
+    private static function resolveModuleDependencies(array $modules): array
     {
         // generate a full list of modules
         $full_list = [];
-        foreach ($modules as $module) {
+        foreach ($modules as $index => $module) {
+            $module = is_string($index) ? $index : $module;
+
             // only allow valid modules
-            if (!(Config::has("poller_modules.$module") || Config::has("discovery_modules.$module"))) {
+            if (! Module::exists($module)) {
                 throw new InvalidModuleException("Invalid module name: $module");
             }
 
-            if (isset(self::$module_deps[$module])) {
-                $full_list = array_merge($full_list, self::$module_deps[$module]);
-            } else {
-                $full_list[] = $module;
+            foreach (Module::fromName($module)->dependencies() as $dependency) {
+                $full_list[$dependency] = true;
             }
+
+            $full_list[$module] = true;
         }
 
-        return array_unique($full_list);
+        return $full_list;
     }
 
     private function parseArgs($type)
@@ -329,7 +344,7 @@ class ModuleTestHelper
             return false;
         }
 
-        return parse_modules($type, ['m' => implode(',', $this->modules)]);
+        return parse_modules($type, ['m' => implode(',', array_keys($this->modules))]);
     }
 
     private function qPrint($var)
@@ -345,29 +360,35 @@ class ModuleTestHelper
         }
     }
 
-    private function convertSnmpToSnmprec($snmp_data)
+    private function convertSnmpToSnmprec(SnmpResponse $snmp_data): array
     {
         $result = [];
-        foreach (explode(PHP_EOL, $snmp_data) as $line) {
+        foreach (explode(PHP_EOL, $snmp_data->getRawWithoutBadLines()) as $line) {
             if (empty($line)) {
                 continue;
             }
 
             if (preg_match('/^\.[.\d]+ =/', $line)) {
-                list($oid, $raw_data) = explode(' =', $line, 2);
+                [$oid, $raw_data] = explode(' =', $line, 2);
                 $oid = ltrim($oid, '.');
                 $raw_data = trim($raw_data);
 
-                if (empty($raw_data)) {
+                if (empty($raw_data) || $raw_data == '""') {
                     $result[] = "$oid|4|"; // empty data, we don't know type, put string
                 } else {
-                    list($raw_type, $data) = explode(':', $raw_data, 2);
-                    if (starts_with($raw_type, 'Wrong Type (should be ')) {
+                    [$raw_type, $data] = explode(':', $raw_data, 2);
+                    if (Str::startsWith($raw_type, 'Wrong Type (should be ')) {
                         // device returned the wrong type, save the wrong type to emulate the device behavior
-                        list($raw_type, $data) = explode(':', ltrim($data), 2);
+                        [$raw_type, $data] = explode(':', ltrim($data), 2);
                     }
-                    $data = ltrim($data, ' "');
+
                     $type = $this->getSnmprecType($raw_type);
+
+                    $data = ltrim($data, ' ');
+                    if (Str::startsWith($data, '"') && Str::endsWith($data, '"')) {
+                        // raw string surrounded by quotes, strip extra escapes
+                        $data = stripslashes(substr($data, 1, -1));
+                    }
 
                     if ($type == '6') {
                         // remove leading . from oid data
@@ -387,7 +408,7 @@ class ModuleTestHelper
                 // multi-line data, append to last
                 $last = end($result);
 
-                list($oid, $type, $data) = explode('|', $last, 3);
+                [$oid, $type, $data] = explode('|', $last, 3);
                 if ($type == '4x') {
                     $result[key($result)] .= bin2hex(PHP_EOL . $line);
                 } else {
@@ -408,7 +429,7 @@ class ModuleTestHelper
             'Timeticks' => '67',
             'INTEGER' => '2',
             'OCTET STRING' => '4',
-            'BITS' => '4', # not sure if this is right
+            'BITS' => '4', // not sure if this is right
             'Integer32' => '2',
             'NULL' => '5',
             'OBJECT IDENTIFIER' => '6',
@@ -417,16 +438,22 @@ class ModuleTestHelper
             'Gauge32' => '66',
             'Opaque' => '68',
             'Counter64' => '70',
-            'Network Address' => '4'
+            'Network Address' => '4',
         ];
 
         return $snmpTypes[$text];
     }
 
-    private function saveSnmprec($data, $write = true, $prefer_new = false)
+    private function saveSnmprec(array $data, ?string $context = null, bool $write = true, bool $prefer_new = false): string
     {
-        if (is_file($this->snmprec_file)) {
-            $existing_data = $this->indexSnmprec(explode(PHP_EOL, file_get_contents($this->snmprec_file)));
+        $filename = $this->snmprec_file;
+
+        if ($context) {
+            $filename = str_replace('.snmprec', '', $filename) . "@$context.snmprec";
+        }
+
+        if (is_file($filename)) {
+            $existing_data = $this->indexSnmprec(explode(PHP_EOL, file_get_contents($filename)));
         } else {
             $existing_data = [];
         }
@@ -451,9 +478,12 @@ class ModuleTestHelper
         $output = implode(PHP_EOL, $results) . PHP_EOL;
 
         if ($write) {
-            $this->qPrint("\nUpdated snmprec data $this->snmprec_file\n");
-            $this->qPrint("\nVerify this file does not contain any private data before submitting!\n");
-            file_put_contents($this->snmprec_file, $output);
+            if (empty($results)) {
+                $this->qPrint("No data for $filename\n");
+            } else {
+                $this->qPrint("\nSaved snmprec data $filename\n");
+                file_put_contents($filename, $output);
+            }
         }
 
         return $output;
@@ -464,8 +494,8 @@ class ModuleTestHelper
         $result = [];
 
         foreach ($snmprec_data as $line) {
-            if (!empty($line)) {
-                list($oid,) = explode('|', $line, 2);
+            if (! empty($line)) {
+                [$oid] = explode('|', $line, 2);
                 $result[$oid] = $line;
             }
         }
@@ -484,8 +514,21 @@ class ModuleTestHelper
         foreach ($private_oid as $oid) {
             if (isset($data[$oid])) {
                 $parts = explode('|', $data[$oid], 3);
-                $parts[2] = '<private>';
+                $parts[2] = $parts[1] === '4' ? '<private>' : '3C707269766174653E';
                 $data[$oid] = implode('|', $parts);
+            }
+        }
+
+        // IF-MIB::ifPhysAddress, Make sure it is in hex format
+        foreach ($data as $oid => $oid_data) {
+            if (str_starts_with($oid, '1.3.6.1.2.1.2.2.1.6.')) {
+                $parts = explode('|', $oid_data, 3);
+                $mac = Mac::parse($parts[2])->hex();
+                if ($mac) {
+                    $parts[2] = $mac;
+                    $parts[1] = '4x';
+                    $data[$oid] = implode('|', $parts);
+                }
             }
         }
     }
@@ -494,49 +537,65 @@ class ModuleTestHelper
      * Run discovery and polling against snmpsim data and create a database dump
      * Save the dumped data to tests/data/<os>.json
      *
-     * @param Snmpsim $snmpsim
-     * @param bool $no_save
-     * @return array
      * @throws FileNotFoundException
      */
-    public function generateTestData(Snmpsim $snmpsim, $no_save = false)
+    public function generateTestData(string $snmpSimIp, int $snmpSimPort, bool $noSave = false): ?array
     {
-        global $device, $debug, $vdebug;
+        global $device;
+        Config::set('rrd.enable', false); // disable rrd
+        Config::set('rrdtool_version', '1.7.2'); // don't detect rrdtool version, rrdtool is not install on ci
 
-        if (!is_file($this->snmprec_file)) {
+        // don't allow external DNS queries that could fail
+        app()->bind(AutonomousSystem::class, function ($app, $parameters) {
+            $asn = $parameters['asn'] ?? '?';
+            $mock = \Mockery::mock(AutonomousSystem::class);
+            $mock->shouldReceive('name')->withAnyArgs()->zeroOrMoreTimes()->andReturnUsing(function () use ($asn) {
+                return "AS$asn-MOCK-TEXT";
+            });
+
+            return $mock;
+        });
+
+        if (! is_file($this->snmprec_file)) {
             throw new FileNotFoundException("$this->snmprec_file does not exist!");
         }
 
-        // Remove existing device in case it didn't get removed previously
-        if ($existing_device = device_by_name($snmpsim->getIp())) {
+        // Remove existing device in case it didn't get removed previously, if we're not running in CI
+        if (! getenv('CI') && ($existing_device = device_by_name($snmpSimIp)) && isset($existing_device['device_id'])) {
             delete_device($existing_device['device_id']);
         }
 
         // Add the test device
         try {
-            Config::set('snmp.community', [$this->file_name]);
-            $device_id = addHost($snmpsim->getIp(), 'v2c', $snmpsim->getPort());
-
-            // disable to block normal pollers
-            dbUpdate(['disabled' => 1], 'devices', 'device_id=?', [$device_id]);
+            $new_device = new Device([
+                'hostname' => $snmpSimIp,
+                'snmpver' => 'v2c',
+                'community' => $this->file_name,
+                'port' => $snmpSimPort,
+                'disabled' => 1, // disable to block normal pollers
+            ]);
+            (new ValidateDeviceAndCreate($new_device, true))->execute();
+            $device_id = $new_device->device_id;
 
             $this->qPrint("Added device: $device_id\n");
         } catch (\Exception $e) {
             echo $this->file_name . ': ' . $e->getMessage() . PHP_EOL;
+
             return null;
         }
 
         // Populate the device variable
         $device = device_by_id_cache($device_id, true);
+        DeviceCache::setPrimary($device_id);
 
         $data = [];  // array to hold dumped data
 
         // Run discovery
-        $save_debug = $debug;
-        $save_vedbug = $vdebug;
+        $save_debug = Debug::isEnabled();
+        $save_vedbug = Debug::isVerbose();
         if ($this->quiet) {
-            $debug = true;
-            $vdebug = true;
+            Debug::setOnly();
+            Debug::setVerbose();
         }
         ob_start();
 
@@ -544,8 +603,8 @@ class ModuleTestHelper
 
         $this->discovery_output = ob_get_contents();
         if ($this->quiet) {
-            $debug = $save_debug;
-            $vdebug = $save_vedbug;
+            Debug::setOnly($save_debug);
+            Debug::setVerbose($save_vedbug);
         } else {
             ob_flush();
         }
@@ -559,21 +618,22 @@ class ModuleTestHelper
 
         // Dump the discovered data
         $data = array_merge_recursive($data, $this->dumpDb($device['device_id'], $discovered_modules, 'discovery'));
-        $device = device_by_id_cache($device_id, true); // refresh the device array
+        DeviceCache::get($device_id)->refresh(); // refresh the device
 
         // Run the poller
         if ($this->quiet) {
-            $debug = true;
-            $vdebug = true;
+            Debug::setOnly();
+            Debug::setVerbose();
         }
         ob_start();
 
-        poll_device($device, $this->parseArgs('poller'));
+        \Log::setDefaultDriver('console');
+        (new PollDevice($device_id, $this->modules))->handle();
 
         $this->poller_output = ob_get_contents();
         if ($this->quiet) {
-            $debug = $save_debug;
-            $vdebug = $save_vedbug;
+            Debug::setOnly($save_debug);
+            Debug::setVerbose($save_vedbug);
         } else {
             ob_flush();
         }
@@ -584,29 +644,30 @@ class ModuleTestHelper
         $polled_modules = array_keys($this->poller_module_output);
 
         // Dump polled data
-        $data = array_merge_recursive($data, $this->dumpDb($device['device_id'], $polled_modules, 'poller'));
+        $data = array_merge_recursive($data, $this->dumpDb($device_id, $polled_modules, 'poller'));
 
-        // Remove the test device, we don't need the debug from this
-        if ($device['hostname'] == $snmpsim->getIp()) {
-            global $debug;
-            $debug = false;
-            delete_device($device['device_id']);
+        // Remove the test device, if we're not running in CI
+        if (! getenv('CI') && $device['hostname'] == $snmpSimIp) {
+            // we don't need the debug from this
+            Debug::set(false);
+            delete_device($device_id);
         }
 
-
-        if (!$no_save) {
+        if (! $noSave) {
             d_echo($data);
 
             // Save the data to the default test data location (or elsewhere if specified)
-            $existing_data = json_decode(file_get_contents($this->json_file), true);
+            $existing_data = is_readable($this->json_file)
+                ? json_decode(file_get_contents($this->json_file), true)
+                : [];
 
             // insert new data, don't store duplicate data
             foreach ($data as $module => $module_data) {
                 // skip saving modules with no data
-                if ($this->dataIsEmpty($module_data['discovery']) && $this->dataIsEmpty($module_data['poller'])) {
+                if (empty($module_data['discovery']) && empty($module_data['poller'])) {
                     continue;
                 }
-                if ($module_data['discovery'] == $module_data['poller']) {
+                if (isset($module_data['discovery']) && isset($module_data['poller']) && $module_data['discovery'] == $module_data['poller']) {
                     $existing_data[$module] = [
                         'discovery' => $module_data['discovery'],
                         'poller' => 'matches discovery',
@@ -616,7 +677,7 @@ class ModuleTestHelper
                 }
             }
 
-            file_put_contents($this->json_file, _json_encode($existing_data) . PHP_EOL);
+            file_put_contents($this->json_file, json_encode($existing_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
             $this->qPrint("Saved to $this->json_file\nReady for testing!\n");
         }
 
@@ -624,8 +685,8 @@ class ModuleTestHelper
     }
 
     /**
-     * @param string $output poller or discovery output
-     * @param string $type poller|disco identified by "#### Load disco module" string
+     * @param  string  $output  poller or discovery output
+     * @param  string  $type  poller|disco identified by "#### Load disco module" string
      * @return array
      */
     private function extractModuleOutput($output, $type)
@@ -656,75 +717,25 @@ class ModuleTestHelper
      * Dump the current database data for the module to an array
      * Mostly used for testing
      *
-     * @param int $device_id The test device id
-     * @param array modules to capture data for (should be a list of modules that were actually run)
-     * @param string $key a key to store the data under the module key (usually discovery or poller)
+     * @param  int  $device_id  The test device id
+     * @param  array  $modules  to capture data for (should be a list of modules that were actually run)
+     * @param  string  $type  a key to store the data under the module key (usually discovery or poller)
      * @return array The dumped data keyed by module -> table
      */
-    public function dumpDb($device_id, $modules, $key = null)
+    public function dumpDb($device_id, $modules, $type)
     {
         $data = [];
-        $module_dump_info = $this->getTableData();
 
         // don't dump some modules by default unless they are manually listed
         if (empty($this->modules)) {
             $modules = array_diff($modules, $this->exclude_from_all);
         }
 
-        // only dump data for the given modules
+        // only dump data for the given modules (and modules that support dumping)
         foreach ($modules as $module) {
-            foreach ($module_dump_info[$module] ?: [] as $table => $info) {
-                // check for custom where
-                $where = isset($info['custom_where']) ? $info['custom_where'] : "WHERE `$table`.`device_id`=?";
-                $params = [$device_id];
-
-                // build joins
-                $join = '';
-                $select = ["`$table`.*"];
-                foreach ($info['joins'] ?: [] as $join_info) {
-                    if (isset($join_info['custom'])) {
-                        $join .= ' ' . $join_info['custom'];
-
-                        $default_select = [];
-                    } else {
-                        list($left, $lkey) = explode('.', $join_info['left']);
-                        list($right, $rkey) = explode('.', $join_info['right']);
-                        $join .= " LEFT JOIN `$right` ON (`$left`.`$lkey` = `$right`.`$rkey`)";
-
-                        $default_select = ["`$right`.*"];
-                    }
-
-                    // build selects
-                    $select = array_merge($select, isset($join_info['select']) ? (array)$join_info['select'] : $default_select);
-                }
-
-                if (isset($info['order_by'])) {
-                    $order_by = " ORDER BY {$info['order_by']}";
-                } else {
-                    $order_by = '';
-                }
-
-                $fields = implode(', ', $select);
-                $rows = dbFetchRows("SELECT $fields FROM `$table` $join $where $order_by", $params);
-
-                // remove unwanted fields
-                if (isset($info['included_fields'])) {
-                    $keys = array_flip($info['included_fields']);
-                    $rows = array_map(function ($row) use ($keys) {
-                        return array_intersect_key($row, $keys);
-                    }, $rows);
-                } elseif (isset($info['excluded_fields'])) {
-                    $keys = array_flip($info['excluded_fields']);
-                    $rows = array_map(function ($row) use ($keys) {
-                        return array_diff_key($row, $keys);
-                    }, $rows);
-                }
-
-                if (isset($key)) {
-                    $data[$module][$key][$table] = $rows;
-                } else {
-                    $data[$module][$table] = $rows;
-                }
+            $module_data = Module::fromName($module)->dump(DeviceCache::get($device_id), $type);
+            if ($module_data !== null) {
+                $data[$module][$type] = $this->dumpToArray($module_data);
             }
         }
 
@@ -732,21 +743,29 @@ class ModuleTestHelper
     }
 
     /**
-     * Get list of tables used by a module
-     * Includes a list of fields that will not be considered for testing
-     *
+     * @param  array|\Illuminate\Support\Collection|\stdClass  $data
      * @return array
      */
-    public function getTableData()
+    private function dumpToArray($data): array
     {
-        return array_intersect_key(self::$module_tables, array_flip($this->getModules()));
+        $output = [];
+
+        foreach ($data as $table => $table_data) {
+            foreach ($table_data as $item) {
+                $output[$table][] = is_a($item, Model::class)
+                    ? Arr::except($item->getAttributes(), $item->getHidden()) // don't apply accessors
+                    : (array) $item;
+            }
+        }
+
+        return $output;
     }
 
     /**
      * Get the output from the last discovery that was run
      * If module was specified, only return that module's output
      *
-     * @param null $module
+     * @param  null  $module
      * @return mixed
      */
     public function getDiscoveryOutput($module = null)
@@ -755,7 +774,7 @@ class ModuleTestHelper
             if (isset($this->discovery_module_output[$module])) {
                 return $this->discovery_module_output[$module];
             } else {
-                return "Module $module not run. Modules: " . implode(',', array_keys($this->poller_module_output));
+                return "Module $module not run. Modules: " . implode(',', array_keys($this->discovery_module_output));
             }
         }
 
@@ -766,7 +785,7 @@ class ModuleTestHelper
      * Get output from the last poller that was run
      * If module was specified, only return that module's output
      *
-     * @param null $module
+     * @param  null  $module
      * @return mixed
      */
     public function getPollerOutput($module = null)
@@ -782,28 +801,6 @@ class ModuleTestHelper
         return $this->poller_output;
     }
 
-
-    /**
-     * Get a list of all modules that support capturing data
-     *
-     * @return array
-     */
-    public function getSupportedModules()
-    {
-        return array_keys(self::$module_tables);
-    }
-
-    /**
-     * Get a list of modules to capture data for
-     * If modules is empty, returns all supported modules
-     *
-     * @return array
-     */
-    private function getModules()
-    {
-        return empty($this->modules) ? $this->getSupportedModules() : $this->modules;
-    }
-
     public function getTestData()
     {
         return json_decode(file_get_contents($this->json_file), true);
@@ -814,17 +811,7 @@ class ModuleTestHelper
         if ($short) {
             return ltrim(str_replace(Config::get('install_dir'), '', $this->json_file), '/');
         }
+
         return $this->json_file;
-    }
-
-    private function dataIsEmpty($data)
-    {
-        foreach ($data as $table_data) {
-            if (!empty($table_data)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

@@ -3,19 +3,18 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateSlasTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('slas', function (Blueprint $table) {
             $table->increments('sla_id');
-            $table->unsignedInteger('device_id')->index('device_id');
+            $table->unsignedInteger('device_id')->index();
             $table->integer('sla_nr');
             $table->string('owner');
             $table->string('tag');
@@ -23,7 +22,7 @@ class CreateSlasTable extends Migration
             $table->boolean('status');
             $table->boolean('opstatus')->default(0);
             $table->boolean('deleted')->default(0);
-            $table->unique(['device_id','sla_nr'], 'unique_key');
+            $table->unique(['device_id', 'sla_nr']);
         });
     }
 
@@ -32,8 +31,8 @@ class CreateSlasTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('slas');
     }
-}
+};

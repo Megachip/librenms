@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ict-pdu.inc.php
  *
@@ -15,14 +16,13 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Lorenzo Zafra
  * @author     Lorenzo Zafra<zafra@ualberta.ca>
  */
-
 $oids = snmpwalk_cache_oid($device, 'outputEntry', [], 'ICT-DISTRIBUTION-PANEL-MIB');
 
 if (is_array($oids)) {
@@ -35,8 +35,8 @@ if (is_array($oids)) {
 
     foreach ($oids as $index => $entry) {
         $fuse_state_oid = '.1.3.6.1.4.1.39145.10.8.1.4.' . $index;
-        $fuse_number = (int)$index + 1;
-        $descr = "Fuse #" . $fuse_number;
+        $fuse_number = (int) $index + 1;
+        $descr = 'Fuse #' . $fuse_number;
 
         $current_value_string = $entry[$state_name];
         if ($current_value_string == 'OK') {
@@ -45,8 +45,6 @@ if (is_array($oids)) {
             $current_value = 2;
         }
 
-        discover_sensor($valid['sensor'], 'state', $device, $fuse_state_oid, $index, $state_name, $descr, 1, 1, null, null, null, null, $current_value, 'snmp', $index);
-
-        create_sensor_to_state_index($device, $state_name, $index);
+        discover_sensor(null, 'state', $device, $fuse_state_oid, $index, $state_name, $descr, 1, 1, null, null, null, null, $current_value, 'snmp', $index);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * TwoFactorManagementController.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -38,10 +39,10 @@ class TwoFactorManagementController extends Controller
         $twofactor['fails'] = 0;
 
         if (UserPref::setPref($user, 'twofactor', $twofactor)) {
-            return response()->json(['msg' => __('Two-Factor unlocked.')]);
+            return response()->json(['status' => 'ok', 'msg' => __('Two-Factor unlocked.')]);
         }
 
-        return response()->json(['error' => __("Failed to unlock Two-Factor.")]);
+        return response()->json(['error' => __('Failed to unlock Two-Factor.')]);
     }
 
     public function destroy(TwoFactorManagementRequest $request, User $user)
@@ -50,6 +51,6 @@ class TwoFactorManagementController extends Controller
             return response()->json(['msg' => __('Two-Factor removed.')]);
         }
 
-        return response()->json(['error' => __("Failed to remove Two-Factor.")]);
+        return response()->json(['error' => __('Failed to remove Two-Factor.')]);
     }
 }

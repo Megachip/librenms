@@ -1,7 +1,5 @@
 <?php
 
-$class      = 'count';
-$unit       = '';
-$graph_type = 'sensor_count';
+$class = 'count';
 
 require 'sensors.inc.php';

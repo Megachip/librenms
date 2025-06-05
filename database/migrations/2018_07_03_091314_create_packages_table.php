@@ -3,19 +3,18 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreatePackagesTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('packages', function (Blueprint $table) {
             $table->increments('pkg_id');
-            $table->unsignedInteger('device_id')->index('device_id');
+            $table->unsignedInteger('device_id')->index();
             $table->string('name', 64);
             $table->string('manager', 16)->default('1');
             $table->boolean('status');
@@ -23,7 +22,7 @@ class CreatePackagesTable extends Migration
             $table->string('build', 64);
             $table->string('arch', 16);
             $table->bigInteger('size')->nullable();
-            $table->unique(['device_id','name','manager','arch','version','build'], 'unique_key');
+            $table->unique(['device_id', 'name', 'manager', 'arch', 'version', 'build']);
         });
     }
 
@@ -32,8 +31,8 @@ class CreatePackagesTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('packages');
     }
-}
+};

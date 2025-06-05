@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Ipv6Network.php
  *
@@ -15,27 +16,44 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
+ * @author     Peca Nesovanovic <peca.nesovanovic@sattrakt.com>
  */
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Ipv6Network extends Model
 {
     public $timestamps = false;
     protected $primaryKey = 'ipv6_network_id';
+    protected $fillable = [
+        'ipv6_network',
+        'context_name',
+    ];
 
     // ---- Define Relationships ----
-
-    public function ipv6()
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Ipv6Address, $this>
+     */
+    public function ipv6(): HasMany
     {
-        return $this->hasMany('App\Models\Ipv6Address', 'ipv6_network_id');
+        return $this->hasMany(Ipv6Address::class, 'ipv6_network_id');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough<\App\Models\Port, \App\Models\Ipv6Address, $this>
+     */
+    public function connectedPorts(): HasManyThrough
+    {
+        return $this->hasManyThrough(Port::class, Ipv6Address::class, 'ipv6_network_id', 'port_id', 'ipv6_network_id', 'port_id');
     }
 }

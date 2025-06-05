@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 /*
  * Copyright (C) 2014  <singh@devilcode.org>
  * Modified and Relicensed by <f0o@devilcode.org> under the expressed
@@ -16,10 +17,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * */
 
-$init_modules = array();
+$init_modules = [];
 require __DIR__ . '/includes/init.php';
 error_reporting(E_ERROR);
 

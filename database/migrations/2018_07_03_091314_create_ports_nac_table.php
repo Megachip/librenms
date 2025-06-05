@@ -1,22 +1,22 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-class CreatePortsNacTable extends Migration
+return new class extends Migration
 {
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ports_nac', function (Blueprint $table) {
             $table->increments('ports_nac_id');
             $table->string('auth_id', 50);
-            $table->unsignedInteger('device_id')->index('ports_nac_device_id_index');
+            $table->unsignedInteger('device_id')->index();
             $table->unsignedInteger('port_id');
             $table->string('domain', 50);
             $table->string('username', 50);
@@ -38,8 +38,8 @@ class CreatePortsNacTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ports_nac');
     }
-}
+};

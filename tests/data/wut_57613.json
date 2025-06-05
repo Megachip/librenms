@@ -5,37 +5,20 @@
                 {
                     "sysName": "<private>",
                     "sysObjectID": ".1.3.6.1.4.1.5040.1.2.16",
-                    "sysDescr": null,
-                    "sysContact": null,
-                    "version": null,
-                    "hardware": null,
-                    "features": null,
-                    "os": "wut",
-                    "type": "environment",
-                    "serial": null,
-                    "icon": "wut.svg",
-                    "location": null
-                }
-            ]
-        },
-        "poller": {
-            "devices": [
-                {
-                    "sysName": "<private>",
-                    "sysObjectID": ".1.3.6.1.4.1.5040.1.2.16",
-                    "sysDescr": null,
+                    "sysDescr": "",
                     "sysContact": "<private>",
                     "version": null,
                     "hardware": null,
                     "features": null,
+                    "location": "<private>",
                     "os": "wut",
                     "type": "environment",
                     "serial": null,
-                    "icon": "wut.svg",
-                    "location": "<private>"
+                    "icon": "wut.svg"
                 }
             ]
-        }
+        },
+        "poller": "matches discovery"
     },
     "ports": {
         "discovery": {
@@ -51,9 +34,8 @@
                     "portName": null,
                     "ifIndex": 1,
                     "ifSpeed": null,
+                    "ifSpeed_prev": null,
                     "ifConnectorPresent": null,
-                    "ifPromiscuousMode": null,
-                    "ifHighSpeed": null,
                     "ifOperStatus": "up",
                     "ifOperStatus_prev": null,
                     "ifAdminStatus": null,
@@ -63,15 +45,11 @@
                     "ifType": "ethernetCsmacd",
                     "ifAlias": "Ethernet",
                     "ifPhysAddress": null,
-                    "ifHardType": null,
                     "ifLastChange": 0,
-                    "ifVlan": "",
+                    "ifVlan": null,
                     "ifTrunk": null,
-                    "counter_in": null,
-                    "counter_out": null,
                     "ignore": 0,
                     "disabled": 0,
-                    "detailed": 0,
                     "deleted": 0,
                     "pagpOperationMode": null,
                     "pagpPortState": null,
@@ -160,9 +138,8 @@
                     "portName": null,
                     "ifIndex": 1,
                     "ifSpeed": 100000000,
+                    "ifSpeed_prev": null,
                     "ifConnectorPresent": null,
-                    "ifPromiscuousMode": null,
-                    "ifHighSpeed": null,
                     "ifOperStatus": "up",
                     "ifOperStatus_prev": "up",
                     "ifAdminStatus": "up",
@@ -172,15 +149,11 @@
                     "ifType": "ethernetCsmacd",
                     "ifAlias": "Ethernet",
                     "ifPhysAddress": "00c03d047753",
-                    "ifHardType": null,
                     "ifLastChange": 3919671119,
-                    "ifVlan": "",
+                    "ifVlan": null,
                     "ifTrunk": null,
-                    "counter_in": null,
-                    "counter_out": null,
                     "ignore": 0,
                     "disabled": 0,
-                    "detailed": 0,
                     "deleted": 0,
                     "pagpOperationMode": null,
                     "pagpPortState": null,
@@ -267,7 +240,7 @@
                     "sensor_oid": ".1.3.6.1.4.1.5040.1.2.16.1.4.1.1.3",
                     "sensor_index": "wtWebGraphThermoBaroSensorNo.3",
                     "sensor_type": "wut",
-                    "sensor_descr": "Luftdruck",
+                    "sensor_descr": "Environment",
                     "group": null,
                     "sensor_divisor": 100,
                     "sensor_multiplier": 1,
@@ -282,11 +255,24 @@
                     "entPhysicalIndex_measured": null,
                     "sensor_prev": null,
                     "user_func": null,
+                    "rrd_type": "GAUGE",
                     "state_name": null
                 }
-            ],
-            "state_indexes": []
+            ]
         },
         "poller": "matches discovery"
+    },
+    "ipv4-addresses": {
+        "discovery": {
+            "ipv4_addresses": [
+                {
+                    "ipv4_address": "149.217.128.27",
+                    "ipv4_prefixlen": 20,
+                    "context_name": "",
+                    "ipv4_network": "149.217.128.0/20",
+                    "ifIndex": 1
+                }
+            ]
+        }
     }
 }

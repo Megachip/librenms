@@ -1,4 +1,5 @@
 <?php
+
 /**
  * procurve.inc.php
  *
@@ -15,20 +16,19 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2017 Neil Lathwood
  * @author     Neil Lathwood <gh+n@laf.io>
  */
-
-foreach ($pre_cache['procurve_hpicfSensorTable'] as $index => $data) {
-    $state_name    = $data['hpicfSensorObjectId'];
-    $state_oid     = '.1.3.6.1.4.1.11.2.14.11.1.2.6.1.4.';
-    $state_descr   = $data['hpicfSensorDescr'];
-    $state          = $data['hpicfSensorStatus'];
-    $state_index      = $state_name . '.' . $index;
+foreach (snmpwalk_cache_oid($device, 'hpicfSensorTable', [], 'HP-ICF-CHASSIS', null, '-OeQUs') as $index => $data) {
+    $state_name = $data['hpicfSensorObjectId'];
+    $state_oid = '.1.3.6.1.4.1.11.2.14.11.1.2.6.1.4.';
+    $state_descr = $data['hpicfSensorDescr'];
+    $state = $data['hpicfSensorStatus'];
+    $state_index = $state_name . '.' . $index;
 
     $states = [
         ['value' => 1, 'generic' => 3, 'graph' => 0, 'descr' => 'unknown'],
@@ -39,6 +39,5 @@ foreach ($pre_cache['procurve_hpicfSensorTable'] as $index => $data) {
     ];
     create_state_index($state_name, $states);
 
-    discover_sensor($valid['sensor'], 'state', $device, $state_oid . $index, $state_index, $state_name, $state_descr, '1', '1', null, null, null, null, $state);
-    create_sensor_to_state_index($device, $state_name, $state_index);
+    discover_sensor(null, 'state', $device, $state_oid . $index, $state_index, $state_name, $state_descr, '1', '1', null, null, null, null, $state);
 }

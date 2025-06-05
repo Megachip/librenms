@@ -1,23 +1,27 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-class DeviceInsertedNull extends Migration
+return new class extends Migration
 {
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::table('devices', function (Blueprint $table) {
-            // inserted column will not default null to CURRENT_TIMESTAMP
-            \DB::statement("alter table `devices` change `inserted` `inserted` timestamp NULL default CURRENT_TIMESTAMP;");
-            \DB::statement("update `devices` set `inserted`=NULL;"); // set all existing (legacy) rows to null
+            if (LibreNMS\DB\Eloquent::getDriver() == 'mysql') {
+                DB::statement('ALTER TABLE `devices` CHANGE `inserted` `inserted` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP;');
+            } else {
+                $table->dateTime('inserted')->nullable()->useCurrent()->change();
+            }
         });
+
+        DB::table('devices')->update(['inserted' => null]);
     }
 
     /**
@@ -25,12 +29,7 @@ class DeviceInsertedNull extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
-        Schema::table('devices', function (Blueprint $table) {
-            // inserted column will default null to CURRENT_TIMESTAMP
-            \DB::statement("alter table `devices` change `inserted` `inserted` timestamp default CURRENT_TIMESTAMP;");
-            \DB::statement("update `devices` set `inserted`=NULL"); // timestamp all existing (legacy) rows to now()
-        });
     }
-}
+};

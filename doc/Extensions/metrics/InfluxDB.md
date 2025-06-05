@@ -1,6 +1,3 @@
-source: Extensions/metrics/InfluxDB.md
-path: blob/master/doc/
-
 # Enabling support for InfluxDB
 
 Before we get started it is important that you know and understand
@@ -10,16 +7,15 @@ that are constantly being made to InfluxDB itself then we cannot
 guarantee that your data will be ok so enabling this support is at
 your own risk!
 
-# Requirements
+## Requirements
 
-- InfluxDB >= 0.94
+- InfluxDB >= 0.94 < 2.0
 - Grafana
-- PHP 5.5 for InfluxDB-PHP
 
 The setup of the above is completely out of scope here and we aren't
 really able to provide any help with this side of things.
 
-# What you don't get
+## What you don't get
 
 - Pretty graphs, this is why at present you need Grafana. You need to
   build your own graphs within Grafana.
@@ -29,19 +25,20 @@ really able to provide any help with this side of things.
 RRD will continue to function as normal so LibreNMS itself should
 continue to function as normal.
 
-# Configuration
+## Configuration
 
-```php
-$config['influxdb']['enable'] = true;
-$config['influxdb']['transport'] = 'http'; # Default, other options: https, udp
-$config['influxdb']['host'] = '127.0.0.1';
-$config['influxdb']['port'] = '8086';
-$config['influxdb']['db'] = 'librenms';
-$config['influxdb']['username'] = 'admin';
-$config['influxdb']['password'] = 'admin';
-$config['influxdb']['timeout'] = 0; # Optional
-$config['influxdb']['verifySSL'] = false; # Optional
-```
+!!! setting "poller/influxdb"
+    ```bash
+    lnms config:set influxdb.enable true
+    lnms config:set influxdb.transport http
+    lnms config:set influxdb.host '127.0.0.1'
+    lnms config:set influxdb.port 8086
+    lnms config:set influxdb.db 'librenms'
+    lnms config:set influxdb.username 'admin'
+    lnms config:set influxdb.password 'admin'
+    lnms config:set influxdb.timeout 0
+    lnms config:set influxdb.verifySSL false
+    ```
 
 No credentials are needed if you don't use InfluxDB authentication.
 

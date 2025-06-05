@@ -10,60 +10,54 @@ class UserPolicy
     use HandlesAuthorization;
 
     /**
-     * Determine whether the user can manage users.
-     *
-     * @param  \App\Models\User  $user
-     * @return bool
-     */
-    public function manage(User $user)
-    {
-        return $user->isAdmin();
-    }
-
-    /**
      * Determine whether the user can view the user.
      *
-     * @param  \App\Models\User  $user
-     * @param  \App\Models\User  $target
-     * @return bool
+     * @param  User  $user
+     * @param  User  $target
      */
-    public function view(User $user, User $target)
+    public function view(User $user, User $target): ?bool
     {
-        return $user->isAdmin() || $target->is($user);
+        return $target->is($user) ?: null;  // allow users to view themselves
     }
 
     /**
      * Determine whether the user can create users.
      *
-     * @param  \App\Models\User  $user
-     * @return bool
+     * @param  User  $user
      */
-    public function create(User $user)
+    public function create(User $user): ?bool
     {
-        return $user->isAdmin();
+        // if not mysql, forbid, otherwise defer to bouncer
+        if (\LibreNMS\Config::get('auth_mechanism') != 'mysql') {
+            return false;
+        }
+
+        return null;
     }
 
     /**
      * Determine whether the user can update the user.
      *
-     * @param  \App\Models\User  $user
-     * @param  \App\Models\User  $target
-     * @return bool
+     * @param  User  $user
+     * @param  User  $target
      */
-    public function update(User $user, User $target)
+    public function update(User $user, ?User $target = null): ?bool
     {
-        return $user->isAdmin() || $target->is($user);
+        if ($target == null) {
+            return null;
+        }
+
+        return $target->is($user) ?: null; // allow user to update self or defer to bouncer
     }
 
     /**
      * Determine whether the user can delete the user.
      *
-     * @param  \App\Models\User  $user
-     * @param  \App\Models\User  $target
-     * @return bool
+     * @param  User  $user
+     * @param  User  $target
      */
-    public function delete(User $user, User $target)
+    public function delete(User $user, User $target): ?bool
     {
-        return $user->isAdmin();
+        return $target->is($user) ? false : null; // do not allow users to delete themselves or defer to bouncer
     }
 }

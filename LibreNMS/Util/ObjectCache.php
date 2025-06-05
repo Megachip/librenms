@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ObjectCache.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -30,16 +31,19 @@ use App\Models\BgpPeer;
 use App\Models\CefSwitching;
 use App\Models\Component;
 use App\Models\Device;
+use App\Models\IsisAdjacency;
+use App\Models\Mpls;
 use App\Models\OspfInstance;
+use App\Models\Ospfv3Instance;
 use App\Models\Port;
+use App\Models\PrinterSupply;
 use App\Models\Pseudowire;
 use App\Models\Sensor;
 use App\Models\Service;
-use App\Models\Toner;
-use App\Models\User;
 use App\Models\Vrf;
-use App\Models\Mpls;
 use Cache;
+use Illuminate\Support\Collection;
+use LibreNMS\Enum\Sensor as SensorEnum;
 
 class ObjectCache
 {
@@ -48,11 +52,14 @@ class ObjectCache
     public static function applications()
     {
         return Cache::remember('ObjectCache:applications_list:' . auth()->id(), self::$cache_time, function () {
-            return Application::hasAccess(auth()->user())
-                ->select('app_type', 'app_instance')
-                ->groupBy('app_type', 'app_instance')
-                ->orderBy('app_type')
-                ->get()
+            $user = auth()->user(); /** @var \App\Models\User $user */
+            $applications = Application::hasAccess($user)
+                ->select(['app_type', 'app_state', 'app_instance'])
+                ->groupBy('app_type', 'app_state', 'app_instance')
+                ->get(); /** @var Collection $applications */
+
+            return $applications
+                ->sortBy('show_name', SORT_NATURAL | SORT_FLAG_CASE)
                 ->groupBy('app_type');
         });
     }
@@ -60,11 +67,14 @@ class ObjectCache
     public static function routing()
     {
         return Cache::remember('ObjectCache:routing_counts:' . auth()->id(), self::$cache_time, function () {
-            $user = auth()->user();
+            $user = auth()->user(); /** @var \App\Models\User $user */
+
             return [
                 'vrf' => Vrf::hasAccess($user)->count(),
                 'mpls' => Mpls::hasAccess($user)->count(),
                 'ospf' => OspfInstance::hasAccess($user)->count(),
+                'ospfv3' => Ospfv3Instance::hasAccess($user)->count(),
+                'isis' => IsisAdjacency::hasAccess($user)->count(),
                 'cisco-otv' => Component::hasAccess($user)->where('type', 'Cisco-OTV')->count(),
                 'bgp' => BgpPeer::hasAccess($user)->count(),
                 'cef' => CefSwitching::hasAccess($user)->count(),
@@ -75,7 +85,8 @@ class ObjectCache
     public static function sensors()
     {
         return Cache::remember('ObjectCache:sensor_list:' . auth()->id(), self::$cache_time, function () {
-            $sensor_classes = Sensor::hasAccess(auth()->user())->select('sensor_class')->groupBy('sensor_class')->orderBy('sensor_class')->get();
+            $user = auth()->user(); /** @var \App\Models\User $user */
+            $sensor_classes = Sensor::hasAccess($user)->select('sensor_class')->distinct()->orderBy('sensor_class')->get();
 
             $sensor_menu = [];
             foreach ($sensor_classes as $sensor_model) {
@@ -94,29 +105,30 @@ class ObjectCache
 
                 $sensor_menu[$group][] = [
                     'class' => $class,
-                    'icon' => $sensor_model->icon(),
-                    'descr' => $sensor_model->classDescr()
+                    'icon' => SensorEnum::from($class)->icon(),
+                    'descr' => $sensor_model->classDescr(),
                 ];
             }
 
-            if (Toner::hasAccess(auth()->user())->exists()) {
+            if (PrinterSupply::hasAccess($user)->exists()) {
                 $sensor_menu[3] = [
                     [
                         'class' => 'toner',
                         'icon' => 'print',
-                        'descr' => __('Toner')
-                    ]
+                        'descr' => __('Toner'),
+                    ],
                 ];
             }
 
             ksort($sensor_menu); // ensure menu order
+
             return $sensor_menu;
         });
     }
 
     /**
-     * @param int $device_id device id of the device to get counts for, 0 means all
-     * @param array $fields array of counts to get. Valid options: total, up, down, ignored, shutdown, disabled, deleted, errored, pseudowire
+     * @param  int  $device_id  device id of the device to get counts for, 0 means all
+     * @param  array  $fields  array of counts to get. Valid options: total, up, down, ignored, shutdown, disabled, deleted, errored, pseudowire
      * @return mixed
      */
     public static function portCounts($fields = ['total'], $device_id = 0)
@@ -125,6 +137,7 @@ class ObjectCache
         foreach ($fields as $field) {
             $result[$field] = self::getPortCount($field, $device_id);
         }
+
         return $result;
     }
 
@@ -159,7 +172,7 @@ class ObjectCache
     }
 
     /**
-     * @param array $fields array of counts to get. Valid options: total, up, down, ignored, disabled
+     * @param  array  $fields  array of counts to get. Valid options: total, up, down, ignored, disabled
      * @return array
      */
     public static function deviceCounts($fields = ['total'])
@@ -168,6 +181,7 @@ class ObjectCache
         foreach ($fields as $field) {
             $result[$field] = self::getDeviceCount($field);
         }
+
         return $result;
     }
 
@@ -194,7 +208,7 @@ class ObjectCache
     }
 
     /**
-     * @param array $fields array of counts to get. Valid options: total, ok, warning, critical, ignored, disabled
+     * @param  array  $fields  array of counts to get. Valid options: total, ok, warning, critical, ignored, disabled
      * @return array
      */
     public static function serviceCounts($fields = ['total'], $device_id = 0)
@@ -203,12 +217,13 @@ class ObjectCache
         foreach ($fields as $field) {
             $result[$field] = self::getServiceCount($field, $device_id);
         }
+
         return $result;
     }
 
     private static function getServiceCount($field, $device_id)
     {
-        return Cache::remember("ObjectCache:service_{$field}_count:" . auth()->id(), self::$cache_time, function () use ($field, $device_id) {
+        return Cache::remember("ObjectCache:service_{$field}_count:$device_id:" . auth()->id(), self::$cache_time, function () use ($field, $device_id) {
             $query = Service::hasAccess(auth()->user())->when($device_id, function ($query) use ($device_id) {
                 $query->where('device_id', $device_id);
             });
@@ -222,6 +237,40 @@ class ObjectCache
                 case 'ignored':
                     return $query->isIgnored()->count();
                 case 'disabled':
+                    return $query->isDisabled()->count();
+                case 'total':
+                default:
+                    return $query->count();
+            }
+        });
+    }
+
+    /**
+     * @param  array  $fields  array of counts to get. Valid options: total, ok, critical, disable_notify
+     * @return array
+     */
+    public static function sensorCounts($fields = ['total'], $device_id = 0)
+    {
+        $result = [];
+        foreach ($fields as $field) {
+            $result[$field] = self::getSensorCount($field, $device_id);
+        }
+
+        return $result;
+    }
+
+    private static function getSensorCount($field, $device_id)
+    {
+        return Cache::remember("ObjectCache:sensor_{$field}_count:$device_id:" . auth()->id(), self::$cache_time, function () use ($field, $device_id) {
+            $query = Sensor::hasAccess(auth()->user())->when($device_id, function ($query) use ($device_id) {
+                $query->where('device_id', $device_id);
+            });
+            switch ($field) {
+                case 'ok':
+                    return $query->count() - $query->isCritical()->count();
+                case 'critical':
+                    return $query->isCritical()->count();
+                case 'disable_notify':
                     return $query->isDisabled()->count();
                 case 'total':
                 default:

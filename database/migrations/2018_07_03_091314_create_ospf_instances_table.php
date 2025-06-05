@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateOspfInstancesTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('ospf_instances', function (Blueprint $table) {
             $table->increments('id');
@@ -32,7 +31,7 @@ class CreateOspfInstancesTable extends Migration
             $table->integer('ospfExitOverflowInterval')->nullable();
             $table->string('ospfDemandExtensions', 32)->nullable();
             $table->string('context_name', 128)->nullable();
-            $table->unique(['device_id','ospf_instance_id','context_name'], 'device_id');
+            $table->unique(['device_id', 'ospf_instance_id', 'context_name']);
         });
     }
 
@@ -41,8 +40,8 @@ class CreateOspfInstancesTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('ospf_instances');
     }
-}
+};

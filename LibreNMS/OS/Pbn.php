@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Pbn.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -31,13 +32,24 @@ use LibreNMS\OS;
 
 class Pbn extends OS implements ProcessorDiscovery
 {
+    public function __construct(&$device)
+    {
+        parent::__construct($device);
+
+        if (preg_match('/^.* Build (?<build>\d+)/', $this->getDevice()->version, $version)) {
+            if ($version['build'] <= 16607) { // Buggy version :-(
+                $this->stpTimeFactor = 1;
+            }
+        }
+    }
+
     /**
      * Discover processors.
      * Returns an array of LibreNMS\Device\Processor objects that have been discovered
      *
      * @return array Processors
      */
-    public function discoverProcessors()
+    public function discoverProcessors(): array
     {
         return [
             Processor::discover(
@@ -45,7 +57,7 @@ class Pbn extends OS implements ProcessorDiscovery
                 $this->getDeviceId(),
                 '.1.3.6.1.4.1.11606.10.9.109.1.1.1.1.5.1', // NMS-PROCESS-MIB::nmspmCPUTotal5min
                 0
-            )
+            ),
         ];
     }
 }

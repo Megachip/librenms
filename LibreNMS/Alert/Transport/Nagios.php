@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2014 Daniel Preussker <f0o@devilcode.org>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,29 +12,24 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /**
  * Nagios Transport
+ *
  * @author f0o <f0o@devilcode.org>
  * @copyright 2014 f0o, LibreNMS
  * @license GPL
- * @package LibreNMS
- * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
 
 class Nagios extends Transport
 {
-    public function deliverAlert($obj, $opts)
-    {
-        $opts = $this->config['nagios-fifo'];
-        return $this->contactNagios($obj, $opts);
-    }
-
-    public static function contactNagios($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
         /*
          host_perfdata_file_template=
@@ -50,19 +46,25 @@ class Nagios extends Transport
 
         $format = '';
         $format .= "[HOSTPERFDATA]\t";
-        $format .= strtotime($obj['timestamp']) . "\t";
-        $format .= $obj['hostname'] . "\t";
-        $format .= md5($obj['rule']) . "\t"; //FIXME: Better entity
-        $format .= ($obj['state'] ? $obj['severity'] : "ok") . "\t";
+        $format .= strtotime($alert_data['timestamp']) . "\t";
+        $format .= $alert_data['hostname'] . "\t";
+        $format .= md5($alert_data['rule']) . "\t"; //FIXME: Better entity
+        $format .= ($alert_data['state'] ? $alert_data['severity'] : 'ok') . "\t";
         $format .= "0\t";
         $format .= "0\t";
-        $format .= str_replace("\n", "", nl2br($obj['msg'])) . "\t";
-        $format .= "NULL"; //FIXME: What's the HOSTPERFDATA equivalent for LibreNMS? Oo
+        $format .= str_replace("\n", '', nl2br($alert_data['msg'])) . "\t";
+        $format .= 'NULL'; //FIXME: What's the HOSTPERFDATA equivalent for LibreNMS? Oo
         $format .= "\n";
-        return file_put_contents($opts, $format);
+
+        $fifo = $this->config['nagios-fifo'];
+        if (filetype($fifo) !== 'fifo') {
+            throw new AlertTransportDeliveryException($alert_data, 0, 'File is not a fifo file! Refused to write to it.');
+        }
+
+        return file_put_contents($fifo, $format);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
             'config' => [
@@ -75,7 +77,7 @@ class Nagios extends Transport
             ],
             'validation' => [
                 'nagios-fifo' => 'required',
-            ]
+            ],
         ];
     }
 }

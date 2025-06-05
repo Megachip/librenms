@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DatabaseConnectException.php
  *
@@ -15,10 +16,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2018 Tony Murray
  * @author     Tony Murray <murraytony@gmail.com>
  */
@@ -26,6 +27,9 @@
 namespace LibreNMS\Exceptions;
 
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use LibreNMS\Interfaces\Exceptions\UpgradeableException;
 
 class DatabaseConnectException extends \Exception implements UpgradeableException
@@ -33,10 +37,10 @@ class DatabaseConnectException extends \Exception implements UpgradeableExceptio
     /**
      * Try to convert the given Exception to a DatabaseConnectException
      *
-     * @param \Exception $exception
+     * @param  \Exception  $exception
      * @return static|null
      */
-    public static function upgrade($exception)
+    public static function upgrade($exception): ?static
     {
         // connect exception, convert to our standard connection exception
         return $exception instanceof QueryException && in_array($exception->getCode(), [1044, 1045, 2002]) ?
@@ -50,20 +54,17 @@ class DatabaseConnectException extends \Exception implements UpgradeableExceptio
 
     /**
      * Render the exception into an HTTP or JSON response.
-     *
-     * @param  \Illuminate\Http\Request
-     * @return \Illuminate\Http\Response
      */
-    public function render(\Illuminate\Http\Request $request)
+    public function render(Request $request): Response|JsonResponse
     {
-        $title = __('Error connecting to database');
+        $title = trans('exceptions.database_connect.title');
 
         return $request->wantsJson() ? response()->json([
             'status' => 'error',
             'message' => "$title: " . $this->getMessage(),
-        ]) : response()->view('errors.generic', [
+        ], 503) : response()->view('errors.generic', [
             'title' => $title,
             'content' => $this->getMessage(),
-        ]);
+        ], 503);
     }
 }

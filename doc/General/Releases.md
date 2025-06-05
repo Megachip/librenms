@@ -1,7 +1,4 @@
-source: General/Releases.md
-path: blob/master/doc/
-
-# Introduction
+# Choosing a release
 
 We try to ensure that breaking changes aren't introduced by utilising
 various automated code testing, syntax testing and unit testing along
@@ -10,7 +7,7 @@ well as major refactoring to improve the quality of the code base.
 
 We have two branches available for you to use. The default is the `master` branch.
 
-# Development branch
+## Development branch
 
 Our `master` branch is our dev branch, this is actively commited to
 and it's not uncommon for multiple commits to be merged in daily. As
@@ -22,12 +19,12 @@ secondary testers to the automation and manually testing that is done
 during the merge stages.
 
 You can configure your install (this is the default) to use this
-branch by setting `$config['update_channel'] = 'master';` in
-`config.php` and ensuring you switch to the master branch with:
+branch by setting `lnms config:set update_channel master` 
+and ensuring you switch to the master branch with:
 
 `cd /opt/librenms && git checkout master`
 
-# Stable branch
+## Stable branch
 
 With this in mind, we provide a monthly stable release which is
 released on or around  the last Sunday of the month. Code pull
@@ -38,8 +35,8 @@ The changelog is also updated and will reference the release number
 and date so you can see what changes have been made since the last release.
 
 To switch to using stable branches you can set
-`$config['update_channel'] = 'release';` in config.php and then switch
-to the latest release branch with:
+`lnms config:set update_channel release`
 
-`cd /opt/librenms && git fetch --tags && git checkout $(git describe
---tags $(git rev-list --tags --max-count=1))`
+This will pause updates until the next stable release, at that time LibreNMS will
+update to the stable release and continue to only update to stable releases.
+Downgrading is not supported on LibreNMS and will likely cause bugs.

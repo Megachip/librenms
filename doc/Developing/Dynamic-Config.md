@@ -1,13 +1,10 @@
-source: Developing/Dynamic-Config.md
-path: blob/master/doc/
-
 # Adding new config settings
 
 Adding support for users to update a new config option via the WebUI
 is now a lot easier for general options. This document shows you how
 to add a new config option and even section to the WebUI.
 
-Config settings are defined in `misc/config_definitions.json`
+Config settings are defined in `resources/definitions/config_definitions.json`
 
 You should give a little thought to the name of your config setting.
 For example: a good setting for snmp community, would be `snmp.community`.
@@ -16,14 +13,14 @@ If the user is overriding the option in config.php it would use the format `$con
 
 ## Translation
 
-The config definition system inherently supports translation. You must add the English names in the 
+The config definition system inherently supports translation. You must add the English names in the
 `resoures/lang/en/settings.php` file (and other languages if you can).
 
 To update the javascript translation files, run:
 
     ./lnms translation:generate
 
-# Definition Format
+## Definition Format
 
 For snmp.community, this is the definition:
 
@@ -62,7 +59,7 @@ types can be defined and implemented in a vue.js component
 * `email`: Will validate the input is the correct format for an email
 * `password`: Will mask the value of the input (but does not keep it fully private)
 
-# Custom Types
+## Custom Types
 
 You may set the type field to a custom type and define a Vue.js component to display it to the user.
 

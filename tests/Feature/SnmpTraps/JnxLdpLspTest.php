@@ -1,4 +1,5 @@
 <?php
+
 /**
  * JnxLdpLspTest.php
  * -Description-
@@ -14,33 +15,35 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
  * Tests JnxLdpLspDown and JnxLdpLspUp traps from Juniper devices.
  *
- * @package    LibreNMS
- * @link       http://librenms.org
+ * @link       https://www.librenms.org
+ *
  * @copyright  2019 KanREN, Inc
  * @author     Heath Barnhart <hbarnhart@kanren.net>
  */
 
-namespace LibreNMS\Tests;
+namespace LibreNMS\Tests\Feature\SnmpTraps;
 
 use App\Models\Device;
 use App\Models\Ipv4Address;
-use LibreNMS\Snmptrap\Dispatcher;
-use LibreNMS\Snmptrap\Trap;
-use LibreNMS\Tests\Feature\SnmpTraps\SnmpTrapTestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use LibreNMS\Enum\Severity;
+use LibreNMS\Tests\Traits\RequiresDatabase;
 
 class JnxLdpLspTest extends SnmpTrapTestCase
 {
-    public function testLdpLspDownTrap()
-    {
-        $device = factory(Device::class)->create();
-        $ipv4 = factory(Ipv4Address::class)->make();
+    use RequiresDatabase;
+    use DatabaseTransactions;
 
-        $trapText = "$device->hostname
+    public function testLdpLspDownTrap(): void
+    {
+        $device = Device::factory()->create(); /** @var Device $device */
+        $ipv4 = Ipv4Address::factory()->make(); /** @var Ipv4Address $ipv4 */
+        $this->assertTrapLogsMessage("$device->hostname
 UDP: [$device->ip]:64610->[192.168.5.5]:162
 DISMAN-EVENT-MIB::sysUpTimeInstance 198:2:10:48.91
 SNMPv2-MIB::snmpTrapOID.0 JUNIPER-LDP-MIB::jnxLdpLspDown
@@ -49,21 +52,19 @@ JUNIPER-LDP-MIB::jnxLdpRtrid.0 $device->ip
 JUNIPER-LDP-MIB::jnxLdpLspDownReason.0 topologyChanged
 JUNIPER-LDP-MIB::jnxLdpLspFecLen.0 32
 JUNIPER-LDP-MIB::jnxLdpInstanceName.0 \"test instance down\"
-SNMPv2-MIB::snmpTrapEnterprise.0 JUNIPER-CHASSIS-DEFINES-MIB::jnxProductNameMX480";
-
-        $trap = new Trap($trapText);
-        $message = "LDP session test instance down from $device->ip to $ipv4->ipv4_address has gone down due to topologyChanged";
-        \Log::shouldReceive('event')->once()->with($message, $device->device_id, 'trap', 4);
-
-        $this->assertTrue(Dispatcher::handle($trap), 'Could not handle JnxLdpLspDown trap');
+SNMPv2-MIB::snmpTrapEnterprise.0 JUNIPER-CHASSIS-DEFINES-MIB::jnxProductNameMX480",
+            "LDP session test instance down from $device->ip to $ipv4->ipv4_address has gone down due to topologyChanged",
+            'Could not handle JnxLdpLspDown trap',
+            [Severity::Warning],
+            $device,
+        );
     }
 
-    public function testLdpLspUpTrap()
+    public function testLdpLspUpTrap(): void
     {
-        $device = factory(Device::class)->create();
-        $ipv4 = factory(Ipv4Address::class)->make();
-
-        $trapText = "$device->hostname
+        $device = Device::factory()->create(); /** @var Device $device */
+        $ipv4 = Ipv4Address::factory()->make(); /** @var Ipv4Address $ipv4 */
+        $this->assertTrapLogsMessage("$device->hostname
 UDP: [$device->ip]:64610->[192.168.5.5]:162
 DISMAN-EVENT-MIB::sysUpTimeInstance 198:2:10:48.91
 SNMPv2-MIB::snmpTrapOID.0 JUNIPER-LDP-MIB::jnxLdpLspUp
@@ -71,12 +72,11 @@ JUNIPER-LDP-MIB::jnxLdpLspFec.0 $ipv4->ipv4_address
 JUNIPER-LDP-MIB::jnxLdpRtrid.0 $device->ip
 JUNIPER-LDP-MIB::jnxLdpLspFecLen.0 32
 JUNIPER-LDP-MIB::jnxLdpInstanceName.0 \"test instance up\"
-SNMPv2-MIB::snmpTrapEnterprise.0 JUNIPER-CHASSIS-DEFINES-MIB::jnxProductNameMX480";
-
-        $trap = new Trap($trapText);
-        $message = "LDP session test instance up from $device->ip to $ipv4->ipv4_address is now up.";
-        \Log::shouldReceive('event')->once()->with($message, $device->device_id, 'trap', 1);
-
-        $this->assertTrue(Dispatcher::handle($trap), 'Could not handle JnxLdpLspUp trap');
+SNMPv2-MIB::snmpTrapEnterprise.0 JUNIPER-CHASSIS-DEFINES-MIB::jnxProductNameMX480",
+            "LDP session test instance up from $device->ip to $ipv4->ipv4_address is now up.",
+            'Could not handle JnxLdpLspUp trap',
+            [Severity::Ok],
+            $device,
+        );
     }
 }

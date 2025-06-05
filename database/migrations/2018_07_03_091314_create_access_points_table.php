@@ -3,15 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 
-class CreateAccessPointsTable extends Migration
+return new class extends Migration
 {
-
     /**
      * Run the migrations.
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('access_points', function (Blueprint $table) {
             $table->increments('accesspoint_id');
@@ -20,7 +19,7 @@ class CreateAccessPointsTable extends Migration
             $table->tinyInteger('radio_number')->nullable();
             $table->string('type', 16);
             $table->string('mac_addr', 24);
-            $table->boolean('deleted')->default(0)->index('deleted');
+            $table->boolean('deleted')->default(0)->index();
             $table->tinyInteger('channel')->unsigned()->default(0);
             $table->tinyInteger('txpow')->default(0);
             $table->tinyInteger('radioutil')->default(0);
@@ -29,7 +28,7 @@ class CreateAccessPointsTable extends Migration
             $table->tinyInteger('numactbssid')->default(0);
             $table->tinyInteger('nummonbssid')->default(0);
             $table->unsignedTinyInteger('interference');
-            $table->index(['name','radio_number'], 'name');
+            $table->index(['name', 'radio_number'], 'name');
         });
     }
 
@@ -38,8 +37,8 @@ class CreateAccessPointsTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::drop('access_points');
     }
-}
+};

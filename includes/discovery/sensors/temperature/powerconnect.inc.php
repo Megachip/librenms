@@ -2,37 +2,23 @@
 
 switch ($device['sysObjectID']) {
     /**
-        * Dell Powerconnect 5548
-        * Operating Temperature: 0º C to 45º C
-        */
-    case '.1.3.6.1.4.1.674.10895.3031':
+     * Operating Temperature: 0º C to 45º C
+     */
+    case '.1.3.6.1.4.1.674.10895.3031': /* Dell Powerconnect 5548 */
+    case '.1.3.6.1.4.1.674.10895.3017': /* Dell Powerconnect 3548 */
+    case '.1.3.6.1.4.1.674.10895.3019': /* Dell Powerconnect 3548P */
+    case '.1.3.6.1.4.1.674.10895.3028': /* Dell Powerconnect 2848 */
         $temperature = trim(snmp_get($device, '.1.3.6.1.4.1.89.53.15.1.9.1', '-Ovq'));
-        discover_sensor($valid['sensor'], 'temperature', $device, '.1.3.6.1.4.1.89.53.15.1.9.1', 0, 'powerconnect', 'Internal Temperature', '1', '1', '0', null, null, '45', $temperature);
-        break;
-    /**
-        * Dell Powerconnect 3548
-        * Operating Temperature: 0º C to 45º C
-        */
-    case '.1.3.6.1.4.1.674.10895.3017':
-        $temperature = trim(snmp_get($device, ".1.3.6.1.4.1.89.53.15.1.9.1", "-Ovq"));
-        discover_sensor($valid['sensor'], 'temperature', $device, '.1.3.6.1.4.1.89.53.15.1.9.1', 0, 'powerconnect', 'Internal Temperature', '1', '1', '0', null, null, '45', $temperature);
-        break;
-    /**
-        * Dell Powerconnect 3548P
-        * Operating Temperature: 0º C to 45º C
-        */
-    case '.1.3.6.1.4.1.674.10895.3019':
-        $temperature = trim(snmp_get($device, ".1.3.6.1.4.1.89.53.15.1.9.1", "-Ovq"));
-        discover_sensor($valid['sensor'], 'temperature', $device, '.1.3.6.1.4.1.89.53.15.1.9.1', 0, 'powerconnect', 'Internal Temperature', '1', '1', '0', null, null, '45', $temperature);
+        discover_sensor(null, 'temperature', $device, '.1.3.6.1.4.1.89.53.15.1.9.1', 0, 'powerconnect', 'Internal Temperature', '1', '1', '0', null, null, '45', $temperature);
         break;
     default:
         /**
-        * Default Temperature Discovery
-        * Operating Temperature: 0º C to 45º C
-        */
+         * Default Temperature Discovery
+         * Operating Temperature: 0º C to 45º C
+         */
         $temperature = snmp_get($device, 'boxServicesTempSensorTemperature.0', '-Ovq', 'FASTPATH-BOXSERVICES-PRIVATE-MIB');
         if (is_numeric($temperature)) {
-            discover_sensor($valid['sensor'], 'temperature', $device, '.1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.8.1.4.0', 0, 'powerconnect', 'Internal Temperature', '1', '1', '0', null, null, '45', $temperature);
+            discover_sensor(null, 'temperature', $device, '.1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.8.1.4.0', 0, 'powerconnect', 'Internal Temperature', '1', '1', '0', null, null, '45', $temperature);
         }
 }
 
@@ -42,6 +28,9 @@ $temps = snmp_walk($device, '.1.3.6.1.4.1.674.10895.5000.2.6132.1.1.43.1.8.1.5',
 $counter = 0;
 
 foreach (explode("\n", $temps) as $i => $t) {
+    if (! Str::contains($t, ' ')) {
+        continue;
+    }
     $t = explode(' ', $t);
     $oid = $t[0];
     $val = $t[1];
@@ -49,7 +38,7 @@ foreach (explode("\n", $temps) as $i => $t) {
     if (substr($oid, -1) == '1') {
         // This code will only pull CPU temp for each stack member, but there is no reason why the additional values couldn't be graphed
         $counter = $counter + 1;
-        discover_sensor($valid['sensor'], 'temperature', $device, $oid, $counter, 'dnos', 'Unit ' . $counter . ' CPU temperature', '1', '1', null, null, null, null, $val);
+        discover_sensor(null, 'temperature', $device, $oid, $counter, 'dnos', 'Unit ' . $counter . ' CPU temperature', '1', '1', null, null, null, null, $val);
     }
 }
 
@@ -63,9 +52,9 @@ $oids = snmpwalk_cache_oid($device, 'chStackUnitSysType', $oids, 'F10-S-SERIES-C
 
 if (is_array($oids)) {
     foreach ($oids as $index => $entry) {
-        $descr   = 'Unit '.$index.' '.$entry['chStackUnitSysType'];
-        $oid     = '.1.3.6.1.4.1.6027.3.10.1.2.2.1.14.'.$index;
+        $descr = 'Unit ' . $index . ' ' . $entry['chStackUnitSysType'];
+        $oid = '.1.3.6.1.4.1.6027.3.10.1.2.2.1.14.' . $index;
         $current = $entry['chStackUnitTemp'];
-        discover_sensor($valid['sensor'], 'temperature', $device, $oid, $index, 'ftos-sseries', $descr, '1', '1', null, null, null, null, $current);
+        discover_sensor(null, 'temperature', $device, $oid, $index, 'ftos-sseries', $descr, '1', '1', null, null, null, null, $current);
     }
 }

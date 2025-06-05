@@ -1,4 +1,5 @@
 <?php
+
 /* Copyright (C) 2018 Paul Heinrichs <pdheinrichs@gmail.com>
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 /*
  * API Transport
@@ -21,9 +22,13 @@
  * @package LibreNMS
  * @subpackage Alerts
  */
+
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use LibreNMS\Enum\AlertState;
+use LibreNMS\Exceptions\AlertTransportDeliveryException;
+use LibreNMS\Util\Http;
 
 /**
  * The Hue API currently is fairly limited for alerts.
@@ -32,86 +37,61 @@ use LibreNMS\Alert\Transport;
  */
 class Hue extends Transport
 {
-    public function deliverAlert($obj, $opts)
-    {
-        if (!empty($this->config)) {
-            $opts['user'] = $this->config['hue-user'];
-            $opts['bridge'] = $this->config['hue-host'];
-            $opts['duration'] = $this->config['hue-duration'];
-        }
-
-        return $this->contactHue($obj, $opts);
-    }
-
-    public function contactHue($obj, $opts)
+    public function deliverAlert(array $alert_data): bool
     {
         // Don't alert on resolve at this time
-        if ($obj['state'] == 0) {
+        if ($alert_data['state'] == AlertState::RECOVERED) {
             return true;
-        } else {
-            $device = device_by_id_cache($obj['device_id']); // for event logging
-            $hue_user  = $opts['user'];
-            $url         = $opts['bridge'] . "/api/$hue_user/groups/0/action";
-            $curl        = curl_init();
-            $duration  = $opts['duration'];
-            $data       = array("alert" => $duration);
-            $datastring = json_encode($data);
-
-            set_curl_proxy($curl);
-
-            $headers = array('Accept: application/json', 'Content-Type: application/json');
-
-            curl_setopt($curl, CURLOPT_URL, $url);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "PUT");
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($curl, CURLOPT_VERBOSE, 1);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, $datastring);
-
-            $ret  = curl_exec($curl);
-            $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-            if ($code == 200) {
-                d_echo("Sent alert to Phillips Hue Bridge " . $opts['host'] . " for " . $device);
-                return true;
-            } else {
-                d_echo("Hue bridge connection error: " . serialize($ret));
-                return false;
-            }
         }
+
+        $hue_user = $this->config['hue-user'];
+        $url = $this->config['hue-host'] . "/api/$hue_user/groups/0/action";
+        $duration = $this->config['hue-duration'];
+        $data = ['alert' => $duration];
+
+        $res = Http::client()
+            ->acceptJson()
+            ->put($url, $data);
+
+        if ($res->successful()) {
+            return true;
+        }
+
+        throw new AlertTransportDeliveryException($alert_data, $res->status(), $res->body(), $duration, $data);
     }
 
-    public static function configTemplate()
+    public static function configTemplate(): array
     {
         return [
-            'config'=>[
+            'config' => [
                 [
-                  'title'=> 'Host',
-                  'name' => 'hue-host',
-                  'descr' => 'Hue Host',
-                  'type' => 'text',
+                    'title' => 'Host',
+                    'name' => 'hue-host',
+                    'descr' => 'Hue Host',
+                    'type' => 'text',
                 ],
                 [
-                  'title'=> 'Hue User',
-                  'name' => 'hue-user',
-                  'descr' => 'Phillips Hue Host',
-                  'type' => 'text',
+                    'title' => 'Hue User',
+                    'name' => 'hue-user',
+                    'descr' => 'Phillips Hue Host',
+                    'type' => 'text',
                 ],
                 [
-                  'title'=> 'Duration',
-                  'name' => 'hue-duration',
-                  'descr' => 'Phillips Hue Duration',
-                  'type' => 'select',
-                  'options' => [
-                    '1 Second' => 'select',
-                    '15 Seconds' => 'lselect'
-                  ]
-                ]
+                    'title' => 'Duration',
+                    'name' => 'hue-duration',
+                    'descr' => 'Phillips Hue Duration',
+                    'type' => 'select',
+                    'options' => [
+                        '1 Second' => 'select',
+                        '15 Seconds' => 'lselect',
+                    ],
+                ],
             ],
             'validation' => [
                 'hue-host' => 'required|string',
                 'hue-user' => 'required|string',
-                'hue-duration' => 'required|string'
-            ]
+                'hue-duration' => 'required|string',
+            ],
         ];
     }
 }

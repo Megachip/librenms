@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Eventlog;
+use LibreNMS\Enum\Severity;
+
 /*
  * LibreNMS
  *
@@ -13,27 +16,27 @@
 */
 header('Content-type: application/json');
 
-$status  = 'error';
+$status = 'error';
 
-$descr = mres($_POST['descr']);
-$device_id = mres($_POST['device_id']);
-$ifName = mres($_POST['ifName']);
-$port_id = mres($_POST['port_id']);
+$descr = $_POST['descr'];
+$device_id = $_POST['device_id'];
+$ifName = $_POST['ifName'];
+$port_id = $_POST['port_id'];
 
-if (!empty($ifName) && is_numeric($port_id)) {
+if (! empty($ifName) && is_numeric($port_id)) {
     // We have ifName and  port id so update ifAlias
     if (empty($descr)) {
         $descr = 'repoll';
         // Set to repoll so we avoid using ifDescr on port poll
     }
-    if (dbUpdate(array('ifAlias'=>$descr), 'ports', '`port_id`=?', array($port_id)) > 0) {
+    if (dbUpdate(['ifAlias' => $descr], 'ports', '`port_id`=?', [$port_id]) > 0) {
         $device = device_by_id_cache($device_id);
         if ($descr === 'repoll') {
-            del_dev_attrib($device, 'ifName:'.$ifName);
-            log_event("$ifName Port ifAlias cleared manually", $device, 'interface', 3, $port_id);
+            del_dev_attrib($device, 'ifName:' . $ifName);
+            Eventlog::log("$ifName Port ifAlias cleared manually", $device['device_id'], 'interface', Severity::Notice, $port_id);
         } else {
-            set_dev_attrib($device, 'ifName:'.$ifName, 1);
-            log_event("$ifName Port ifAlias set manually: $descr", $device, 'interface', 3, $port_id);
+            set_dev_attrib($device, 'ifName:' . $ifName, 1);
+            Eventlog::log("$ifName Port ifAlias set manually: $descr", $device['device_id'], 'interface', Severity::Notice, $port_id);
         }
         $status = 'ok';
     } else {
@@ -41,7 +44,7 @@ if (!empty($ifName) && is_numeric($port_id)) {
     }
 }
 
-$response = array(
-    'status'        => $status,
-);
-echo _json_encode($response);
+$response = [
+    'status' => $status,
+];
+echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
