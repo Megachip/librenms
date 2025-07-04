@@ -27,6 +27,7 @@ unset($lines);
 $rrd_name = ['app', $name, 'stats', $app->app_id];
 $rrd_def = RrdDefinition::make()
     ->addDataset('calls', 'GAUGE', 0, 10000)
+    ->addDataset('callsprocessed', 'GAUGE', 0, 1000000)
     ->addDataset('channels', 'GAUGE', 0, 20000)
     ->addDataset('sippeers', 'GAUGE', 0, 10000)
     ->addDataset('sipmononline', 'GAUGE', 0, 10000)
@@ -36,6 +37,7 @@ $rrd_def = RrdDefinition::make()
 
 $sip_fields = [
     'calls' => $asterisk['Calls'],
+    'callsprocessed' => $asterisk['CallsProcessed'],
     'channels' => $asterisk['Channels'],
     'sippeers' => $asterisk['SipPeers'],
     'sipmononline' => $asterisk['SipMonOnline'],
